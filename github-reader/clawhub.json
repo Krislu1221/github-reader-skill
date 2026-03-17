@@ -1,0 +1,93 @@
+{
+  "name": "github-reader",
+  "version": "3.1.0",
+  "description": "深度解读 GitHub 项目，生成结构化分析报告 / Deeply analyze GitHub projects and generate structured reports",
+  "author": "Krislu + 🦐 虾软",
+  "license": "MIT",
+  "tags": ["github", "analysis", "ai", "report", "zread", "github-reader", "代码分析", "code-analysis"],
+  "main": "github_reader_v3_secure.py",
+  "entry": "run",
+  "min_version": "2026.3.0",
+  "repository": "https://github.com/your-repo/github-reader-skill",
+  "homepage": "https://github.com/your-repo/github-reader-skill#readme",
+  "bugs": "https://github.com/your-repo/github-reader-skill/issues",
+  "skills": {
+    "category": "开发工具 / Development Tools",
+    "subcategory": "代码分析 / Code Analysis",
+    "icon": "📦",
+    "color": "#4A90D9"
+  },
+  "config": {
+    "env": {
+      "GITVIEW_CACHE_DIR": {
+        "description": "缓存目录路径 / Cache directory path",
+        "default": "/tmp/gitview_cache",
+        "required": false
+      },
+      "GITVIEW_CACHE_TTL": {
+        "description": "缓存过期时间（小时）/ Cache TTL (hours)",
+        "default": "24",
+        "required": false
+      },
+      "GITVIEW_MAX_BROWSER": {
+        "description": "最大并发浏览器数量 / Max concurrent browsers",
+        "default": "3",
+        "required": false
+      },
+      "GITVIEW_GITHUB_DELAY": {
+        "description": "GitHub API 调用间隔（秒）/ GitHub API call delay (seconds)",
+        "default": "1.0",
+        "required": false
+      }
+    }
+  },
+  "features": [
+    "自动分析 GitHub 项目 / Auto-analyze GitHub projects",
+    "生成结构化深度报告 / Generate structured in-depth reports",
+    "智能缓存（24 小时）/ Smart caching (24 hours)",
+    "输入验证和安全防护 / Input validation and security",
+    "并发控制和超时管理 / Concurrency control and timeout management",
+    "支持多种触发方式 / Support multiple trigger methods"
+  ],
+  "usage": {
+    "examples": [
+      "/github-read microsoft/BitNet",
+      "帮我解读这个仓库：https://github.com/HKUDS/nanobot / Help me analyze: https://github.com/HKUDS/nanobot",
+      "分析 HKUDS/nanobot / Analyze HKUDS/nanobot"
+    ],
+    "triggers": [
+      "/github-read {owner}/{repo}",
+      "解读这个仓库：{url} / Analyze this repo: {url}",
+      "分析这个项目：{url} / Analyze this project: {url}"
+    ]
+  },
+  "security": {
+    "input_validation": true,
+    "url_sanitization": true,
+    "cache_validation": true,
+    "rate_limiting": true,
+    "timeout_control": true,
+    "error_handling": true
+  },
+  "changelog": {
+    "3.1.0": [
+      "🌐 国际化：完整中英双语支持",
+      "🔧 平台通用化：移除 nanobot 硬编码",
+      "🔒 安全加固：所有 P0/P1 安全问题已修复",
+      "📁 代码清理：删除旧版本文件",
+      "📖 文档完善：多语言文档支持"
+    ],
+    "3.0.0": [
+      "🔒 安全加固：输入验证（防止 URL 注入）",
+      "🔒 安全加固：安全 URL 拼接（防止 SSRF）",
+      "🔒 安全加固：缓存数据验证（防止投毒）",
+      "🔒 安全加固：路径安全检查（防止遍历）",
+      "⚡ 性能优化：浏览器并发限制",
+      "⚡ 性能优化：API 频率限制",
+      "⚡ 性能优化：超时控制"
+    ],
+    "1.0.0": [
+      "🎉 初始版本发布"
+    ]
+  }
+}
