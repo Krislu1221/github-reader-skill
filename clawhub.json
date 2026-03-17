@@ -8,9 +8,9 @@
   "main": "github_reader_v3_secure.py",
   "entry": "run",
   "min_version": "2026.3.0",
-  "repository": "https://github.com/your-repo/github-reader-skill",
-  "homepage": "https://github.com/your-repo/github-reader-skill#readme",
-  "bugs": "https://github.com/your-repo/github-reader-skill/issues",
+  "repository": "https://github.com/Krislu1221/github-reader-skill",
+  "homepage": "https://github.com/Krislu1221/github-reader-skill#readme",
+  "bugs": "https://github.com/Krislu1221/github-reader-skill/issues",
   "skills": {
     "category": "开发工具 / Development Tools",
     "subcategory": "代码分析 / Code Analysis",
