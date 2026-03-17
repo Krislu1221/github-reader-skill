@@ -81,23 +81,6 @@ export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
 
 ---
 
-## 📁 文件结构 / File Structure
-
-```
-github-reader/
-├── github_reader_v3_secure.py       # v3.1 主代码 / v3.1 Secure main code
-├── __init__.py                      # Skill 注册 / Skill registration
-├── clawhub.json                     # ClawHub 元数据 / ClawHub metadata
-├── SECURITY.md                      # 安全指南 / Security guide
-├── RELEASE_NOTES.md                 # 发布说明 / Release notes
-├── README_BILINGUAL.md              # 简洁中英对照 / Concise bilingual README
-├── README_EN_CN.md                  # 详细中英对照 / Detailed bilingual README
-├── PACKAGE.md                       # 打包说明 / Package guide
-└── install_v3_secure.sh             # 安装脚本 / Installation script
-```
-
----
-
 ## 🔗 相关链接 / Links
 
 - **GitHub**: https://github.com/your-repo/github-reader-skill
