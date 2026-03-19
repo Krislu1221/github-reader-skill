@@ -282,8 +282,8 @@ class SecureGitHubReaderV3:
             
             self.last_github_call = time.time()
             
-            # 使用 web_fetch 工具
-            from nanobot.agent.tools.web import web_fetch
+            # 使用通用 web_fetch 工具
+            from openclaw.tools import web_fetch
             
             api_url = safe_url_join('https://api.github.com/repos', owner, repo)
             
@@ -341,7 +341,7 @@ class SecureGitHubReaderV3:
         try:
             # 并发限制
             async with self.browser_semaphore:
-                from nanobot.agent.tools.browser import browser
+                from openclaw.tools import browser
                 
                 zread_url = safe_url_join('https://zread.ai', owner, repo)
                 

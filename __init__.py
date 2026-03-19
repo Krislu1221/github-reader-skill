@@ -7,8 +7,8 @@ GitHub Reader Skill - 自动解读 GitHub 项目
 """
 
 import re
-from nanobot.agent.skill import Skill
-from nanobot.agent.tools.registry import tool
+import json
+from datetime import datetime
 
 
 class GitHubReaderSkill(Skill):
@@ -128,8 +128,8 @@ cd {repo}
     async def fetch_github_info(self, owner: str, repo: str) -> dict | None:
         """从 GitHub API 获取项目信息"""
         try:
-            # 使用 nanobot 的 web_fetch 工具
-            from nanobot.agent.tools.web import web_fetch
+            # 使用通用的 web_fetch 工具
+            from openclaw.tools import web_fetch
             
             api_url = f'https://api.github.com/repos/{owner}/{repo}'
             response = await web_fetch(api_url)
