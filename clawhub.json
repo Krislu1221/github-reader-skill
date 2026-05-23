@@ -1,8 +1,8 @@
 {
   "name": "github-reader",
-  "version": "3.1.0",
+  "version": "3.1.4",
   "description": "深度解读 GitHub 项目，生成结构化分析报告 / Deeply analyze GitHub projects and generate structured reports",
-  "author": "Krislu + 🦐 虾软",
+  "author": "Kris Lu <krislu666@foxmail.com>",
   "license": "MIT",
   "tags": ["github", "analysis", "ai", "report", "zread", "github-reader", "代码分析", "code-analysis"],
   "main": "github_reader_v3_secure.py",

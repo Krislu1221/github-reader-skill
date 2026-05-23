@@ -1,5 +1,5 @@
 """
-GitHub Reader Skill v3.0 - 安全加固版
+GitHub Reader Skill v3.1 — 安全加固版
 
 安全修复：
 ✅ P0: 输入验证（防止 URL 注入）
@@ -10,6 +10,15 @@ GitHub Reader Skill v3.0 - 安全加固版
 ✅ P1: API 频率限制
 ✅ P1: 超时控制
 ✅ P2: 错误处理优化
+
+v3.1 修复：
+- 移除虚构的 `from openclaw.tools import web_fetch/browser`
+- `fetch_github_api` 改为使用 `requests` 直接调用 GitHub REST API
+- `fetch_zread_content` 改为使用 `web_fetch` 工具（通过参数注入）
+- `relative_time` 修复 naive datetime 时区处理
+- 缓存键恢复为 MD5（去重用途，SHA256 无安全收益）
+- Zread 内容真正注入到报告模板中
+- 版本号统一为 v3.1
 """
 
 import re
@@ -17,10 +26,10 @@ import json
 import hashlib
 import os
 import time
-import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
 from urllib.parse import quote
 
 # 配置日志
@@ -30,21 +39,19 @@ logger = logging.getLogger(__name__)
 
 # ============== 安全配置 ==============
 class SecurityConfig:
-    """安全配置 - 从环境变量读取"""
-    
+    """安全配置 — 从环境变量读取"""
+
     # 缓存配置
     CACHE_DIR = os.getenv('GITVIEW_CACHE_DIR', '/tmp/gitview_cache')
     CACHE_TTL_HOURS = int(os.getenv('GITVIEW_CACHE_TTL', '24'))
     CACHE_MAX_SIZE_MB = int(os.getenv('GITVIEW_CACHE_MAX_SIZE', '1'))
-    
+
     # 速率限制
     GITHUB_API_DELAY = float(os.getenv('GITVIEW_GITHUB_DELAY', '1.0'))
-    MAX_CONCURRENT_BROWSER = int(os.getenv('GITVIEW_MAX_BROWSER', '3'))
-    
+
     # 超时控制
-    BROWSER_TIMEOUT = int(os.getenv('GITVIEW_BROWSER_TIMEOUT', '30'))
     GITHUB_API_TIMEOUT = int(os.getenv('GITVIEW_GITHUB_TIMEOUT', '10'))
-    
+
     # 输入验证
     MAX_NAME_LENGTH = 100
     ALLOWED_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$')
@@ -54,562 +61,547 @@ class SecurityConfig:
 def validate_repo_name(name: str) -> bool:
     """
     验证仓库/所有者名称合法性
-    
+
     安全规则：
     1. 只允许字母、数字、-、_、.
     2. 必须以字母或数字开头
     3. 长度 1-100 字符
     4. 禁止 .. 模式（防止路径遍历）
-    5. 禁止以 - 开头（防止命令行注入）
     """
     if not name or not isinstance(name, str):
         return False
-    
     if len(name) > SecurityConfig.MAX_NAME_LENGTH:
         return False
-    
     if not SecurityConfig.ALLOWED_NAME_PATTERN.match(name):
         return False
-    
     if '..' in name:
         return False
-    
     return True
 
 
 def safe_url_join(base: str, *paths: str) -> str:
-    """
-    安全的 URL 拼接
-    
-    使用 urllib.parse.quote 编码路径组件
-    防止 URL 注入和 SSRF 攻击
-    """
-    encoded_paths = [quote(path, safe='') for path in paths]
-    return '/'.join([base.rstrip('/')] + encoded_paths)
+    """安全 URL 拼接 — 防止 URL 注入和 SSRF"""
+    encoded = [quote(p, safe='') for p in paths]
+    return '/'.join([base.rstrip('/')] + encoded)
 
 
 def safe_file_path(base_dir: str, filename: str) -> str:
-    """
-    安全的文件路径生成
-    
-    防止路径遍历攻击
-    """
-    # 移除所有危险字符
+    """安全文件路径生成 — 防止路径遍历"""
     safe_name = re.sub(r'[^a-zA-Z0-9._-]', '', filename)
-    
-    # 规范化路径
     base_dir = os.path.abspath(base_dir)
     file_path = os.path.normpath(os.path.join(base_dir, safe_name))
-    
-    # 确保结果仍在基础目录内
     if not file_path.startswith(base_dir):
         raise ValueError(f"Invalid file path: {filename}")
-    
     return file_path
 
 
 # ============== 安全缓存系统 ==============
 class SecureGitHubReaderCache:
-    """安全的文件缓存系统"""
-    
+    """安全文件缓存 — 原子写入 + 数据验证"""
+
     def __init__(self, cache_dir: str = None):
         self.cache_dir = cache_dir or SecurityConfig.CACHE_DIR
         self.cache_ttl = timedelta(hours=SecurityConfig.CACHE_TTL_HOURS)
         self.max_cache_size = SecurityConfig.CACHE_MAX_SIZE_MB * 1024 * 1024
-        
-        # 确保缓存目录存在且安全
         self._ensure_cache_dir()
-    
+
     def _ensure_cache_dir(self):
-        """安全地创建缓存目录"""
         try:
             os.makedirs(self.cache_dir, exist_ok=True)
-            # 设置目录权限（仅所有者可读写）
             os.chmod(self.cache_dir, 0o700)
         except Exception as e:
             logger.error(f"Failed to create cache directory: {e}")
             raise
-    
-    def _get_cache_key(self, owner: str, repo: str) -> str:
-        """生成缓存键 - 使用 SHA256（比 MD5 更安全）"""
-        return hashlib.sha256(f"{owner}/{repo}".encode()).hexdigest()
-    
-    def _get_cache_path(self, key: str) -> str:
-        """获取安全的缓存文件路径"""
+
+    def _cache_key(self, owner: str, repo: str) -> str:
+        """生成缓存键 — MD5 足够（去重用途，非安全哈希）"""
+        return hashlib.md5(f"{owner}/{repo}".encode()).hexdigest()
+
+    def _cache_path(self, key: str) -> str:
         return safe_file_path(self.cache_dir, f"{key}.json")
-    
+
     def get(self, owner: str, repo: str) -> Optional[Dict]:
-        """从缓存获取结果 - 带验证"""
-        # 验证输入
         if not validate_repo_name(owner) or not validate_repo_name(repo):
-            logger.warning(f"Invalid repo name in cache get: {owner}/{repo}")
             return None
-        
+
         try:
-            key = self._get_cache_key(owner, repo)
-            path = self._get_cache_path(key)
-            
+            key = self._cache_key(owner, repo)
+            path = self._cache_path(key)
             if not os.path.exists(path):
                 return None
-            
-            # 检查文件大小
-            file_size = os.path.getsize(path)
-            if file_size > self.max_cache_size:
-                logger.warning(f"Cache file too large: {file_size} bytes")
+
+            if os.path.getsize(path) > self.max_cache_size:
+                logger.warning(f"Cache file too large, removing: {path}")
                 os.remove(path)
                 return None
-            
+
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
-            # 验证数据结构
+
             if not isinstance(data, dict):
                 return None
-            
-            required_keys = ['owner', 'repo', 'cached_at', 'data']
-            if not all(key in data for key in required_keys):
+
+            required = ['owner', 'repo', 'cached_at', 'data']
+            if not all(k in data for k in required):
                 return None
-            
-            # 检查是否过期
+
             cached_at = datetime.fromisoformat(data['cached_at'])
-            if datetime.now() - cached_at > self.cache_ttl:
+            if datetime.now(timezone.utc) - cached_at > self.cache_ttl:
                 return None
-            
+
             return data
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in cache: {e}")
-            return None
-        except Exception as e:
+
+        except (json.JSONDecodeError, ValueError, OSError) as e:
             logger.error(f"Cache get error: {e}")
             return None
-    
+
     def set(self, owner: str, repo: str, data: Dict):
-        """缓存结果 - 带验证和原子写入"""
-        # 验证输入
         if not validate_repo_name(owner) or not validate_repo_name(repo):
             raise ValueError(f"Invalid repo name: {owner}/{repo}")
-        
-        # 验证数据大小
+
+        required = ['owner', 'repo', 'analyzed_at']
+        for k in required:
+            if k not in data:
+                raise ValueError(f"Missing required key: {k}")
+
         try:
-            data_size = len(json.dumps(data).encode('utf-8'))
-            if data_size > self.max_cache_size:
-                raise ValueError(f"Data too large: {data_size} bytes")
+            data_bytes = json.dumps(data, ensure_ascii=False).encode('utf-8')
+            if len(data_bytes) > self.max_cache_size:
+                raise ValueError(f"Data too large: {len(data_bytes)} bytes")
         except Exception as e:
-            logger.error(f"Failed to calculate data size: {e}")
+            logger.error(f"Data size check failed: {e}")
             raise
-        
-        # 验证数据结构
-        required_keys = ['owner', 'repo', 'analyzed_at']
-        for key in required_keys:
-            if key not in data:
-                raise ValueError(f"Missing required key: {key}")
-        
+
         try:
-            key = self._get_cache_key(owner, repo)
-            path = self._get_cache_path(key)
-            
+            key = self._cache_key(owner, repo)
+            path = self._cache_path(key)
             cache_data = {
                 'owner': owner,
                 'repo': repo,
-                'cached_at': datetime.now().isoformat(),
-                'data': data
+                'cached_at': datetime.now(timezone.utc).isoformat(),
+                'data': data,
             }
-            
-            # 原子写入（临时文件 + 重命名）
             temp_path = path + '.tmp'
             with open(temp_path, 'w', encoding='utf-8') as f:
                 json.dump(cache_data, f, ensure_ascii=False, indent=2)
                 f.flush()
-                os.fsync(f.fileno())  # 确保写入磁盘
-            
+                os.fsync(f.fileno())
             os.rename(temp_path, path)  # 原子操作
-            
         except Exception as e:
             logger.error(f"Cache set error: {e}")
-            # 清理临时文件
             try:
-                if 'temp_path' in locals() and os.path.exists(temp_path):
+                if os.path.exists(temp_path):
                     os.remove(temp_path)
-            except:
+            except Exception:
                 pass
             raise
 
 
-# ============== 安全的 GitHub Reader ==============
-class SecureGitHubReaderV3:
-    """GitHub Reader Skill v3.0 - 安全加固版"""
-    
+# ============== GitHub API 客户端 ==============
+class GitHubAPIClient:
+    """直接调用 GitHub REST API — 不依赖 openclaw.tools"""
+
     def __init__(self):
+        self._last_call: float = 0
+
+    def repo_info(self, owner: str, repo: str) -> Optional[Dict]:
+        """获取仓库基本信息 — 同步调用，由调用方管理速率/超时"""
+        import urllib.request
+        import urllib.error
+
+        if not validate_repo_name(owner) or not validate_repo_name(repo):
+            return None
+
+        # 速率限制
+        now = time.time()
+        elapsed = now - self._last_call
+        if elapsed < SecurityConfig.GITHUB_API_DELAY:
+            time.sleep(SecurityConfig.GITHUB_API_DELAY - elapsed)
+
+        self._last_call = time.time()
+
+        url = safe_url_join('https://api.github.com/repos', owner, repo)
+        req = urllib.request.Request(
+            url,
+            headers={
+                'Accept': 'application/vnd.github+json',
+                'User-Agent': 'GitHub-Reader-Skill/3.1',
+                'X-GitHub-Api-Version': '2022-11-28',
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=SecurityConfig.GITHUB_API_TIMEOUT) as resp:
+                raw = resp.read()
+                if len(raw) > 512 * 1024:  # 512KB
+                    logger.warning("GitHub API response too large")
+                    return None
+                data = json.loads(raw.decode('utf-8'))
+        except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError,
+                TimeoutError, OSError) as e:
+            logger.error(f"GitHub API error for {owner}/{repo}: {e}")
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        return {
+            'stars': _format_number(data.get('stargazers_count', 0)),
+            'forks': _format_number(data.get('forks_count', 0)),
+            'issues': data.get('open_issues_count', 0),
+            'watchers': _format_number(data.get('subscribers_count', 0)),
+            'language': data.get('language', 'Unknown'),
+            'license': (
+                data.get('license', {}).get('spdx_id', 'Unknown')
+                if isinstance(data.get('license'), dict) else 'Unknown'
+            ),
+            'description': (data.get('description') or '')[:500],
+            'updated': _relative_time(data.get('pushed_at', '')),
+            'homepage': (data.get('homepage') or '')[:200],
+            'topics': data.get('topics', [])[:20],
+            'created_at': data.get('created_at', ''),
+            'default_branch': data.get('default_branch', 'main'),
+        }
+
+
+# ============== GitHub Reader 主类 ==============
+class SecureGitHubReaderV3:
+    """GitHub Reader Skill v3.1 — 安全加固版
+
+    核心能力：
+    1. 解析 GitHub URL → owner/repo
+    2. GitHub REST API 获取仓库元数据
+    3. web_fetch 抓取 Zread 深度解读
+    4. 生成结构化 Markdown 报告
+    5. 文件缓存 + 原子写入
+    """
+
+    def __init__(self, web_fetch_fn=None):
+        """
+        Args:
+            web_fetch_fn: 可选的 web_fetch 工具函数。
+                          传入签名为 (url: str) -> str 的可调用对象。
+                          不传则报告不包含 Zread 内容，仅含 GitHub 元数据。
+        """
         self.cache = SecureGitHubReaderCache()
-        self.last_github_call = 0
-        self.browser_semaphore = asyncio.Semaphore(SecurityConfig.MAX_CONCURRENT_BROWSER)
-    
-    def parse_github_url(self, message: str) -> Optional[tuple[str, str]]:
-        """解析 GitHub URL - 带验证"""
+        self.github = GitHubAPIClient()
+        self._web_fetch = web_fetch_fn
+
+    def parse_github_url(self, message: str) -> Optional[Tuple[str, str]]:
         patterns = [
-            r'github\.com/([^/]+)/([^/\s?]+)',
+            r'github\.com/([^/]+)/([^/\s?#]+)',
             r'^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)$',
         ]
-        
         for pattern in patterns:
             match = re.search(pattern, message)
             if match:
                 owner, repo = match.group(1), match.group(2)
-                
-                # 验证名称合法性
+                # 去掉 .git 后缀
+                repo = re.sub(r'\.git$', '', repo)
                 if validate_repo_name(owner) and validate_repo_name(repo):
                     return owner, repo
-                else:
-                    logger.warning(f"Invalid repo name matched: {owner}/{repo}")
-                    return None
-        
         return None
-    
-    async def fetch_github_api(self, owner: str, repo: str) -> Optional[Dict]:
-        """从 GitHub API 获取实时数据 - 带速率限制和超时"""
-        # 验证输入
-        if not validate_repo_name(owner) or not validate_repo_name(repo):
-            logger.warning(f"Invalid repo name in fetch_github_api: {owner}/{repo}")
+
+    def _fetch_zread(self, owner: str, repo: str) -> Optional[str]:
+        """通过 web_fetch 抓取 Zread 内容"""
+        if self._web_fetch is None:
             return None
-        
+        if not validate_repo_name(owner) or not validate_repo_name(repo):
+            return None
         try:
-            # 速率限制
-            now = time.time()
-            time_since_last = now - self.last_github_call
-            if time_since_last < SecurityConfig.GITHUB_API_DELAY:
-                await asyncio.sleep(SecurityConfig.GITHUB_API_DELAY - time_since_last)
-            
-            self.last_github_call = time.time()
-            
-            # 使用通用 web_fetch 工具
-            from openclaw.tools import web_fetch
-            
-            api_url = safe_url_join('https://api.github.com/repos', owner, repo)
-            
-            # 带超时获取
-            response = await asyncio.wait_for(
-                web_fetch(api_url),
-                timeout=SecurityConfig.GITHUB_API_TIMEOUT
-            )
-            
-            if not response:
-                return None
-            
-            # 限制响应大小
-            if len(response) > 1024 * 1024:  # 1MB
-                logger.warning("GitHub API response too large")
-                return None
-            
-            # 安全解析 JSON
-            try:
-                data = json.loads(response)
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON from GitHub API: {e}")
-                return None
-            
-            # 验证数据类型
-            if not isinstance(data, dict):
-                return None
-            
+            zread_url = safe_url_join('https://zread.ai', owner, repo)
+            return self._web_fetch(zread_url)
+        except Exception as e:
+            logger.error(f"Zread fetch failed for {owner}/{repo}: {e}")
+            return None
+
+    def analyze(self, owner: str, repo: str) -> Dict:
+        """
+        同步分析方法 — 不依赖 asyncio。
+
+        返回 Dict，包含 full_report（Markdown 字符串）、github_info、zread_content 等。
+
+        调用方（Agent）使用方式：
+            reader = SecureGitHubReaderV3(web_fetch_fn=web_fetch)
+            result = reader.analyze("microsoft", "BitNet")
+            # result['full_report'] → Markdown 报告
+        """
+        if not validate_repo_name(owner) or not validate_repo_name(repo):
             return {
-                'stars': self.format_number(data.get('stargazers_count', 0)),
-                'forks': self.format_number(data.get('forks_count', 0)),
-                'issues': data.get('open_issues_count', 0),
-                'language': data.get('language', 'Unknown'),
-                'license': data.get('license', {}).get('spdx_id', 'Unknown') if data.get('license') else 'Unknown',
-                'description': data.get('description', '')[:500],  # 限制长度
-                'updated': self.relative_time(data.get('pushed_at', '')),
-                'homepage': data.get('homepage', '')[:200],  # 限制长度
-                'topics': data.get('topics', [])[:20]  # 限制数量
+                'success': False,
+                'error': f'Invalid repo name: {owner}/{repo}',
             }
-            
-        except asyncio.TimeoutError:
-            logger.error(f"GitHub API timeout for {owner}/{repo}")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to fetch GitHub API: {e}")
-            return None
-    
-    async def fetch_zread_content(self, owner: str, repo: str) -> Optional[str]:
-        """从 Zread 抓取内容 - 带并发限制和超时"""
-        # 验证输入
-        if not validate_repo_name(owner) or not validate_repo_name(repo):
-            logger.warning(f"Invalid repo name in fetch_zread_content: {owner}/{repo}")
-            return None
-        
-        try:
-            # 并发限制
-            async with self.browser_semaphore:
-                from openclaw.tools import browser
-                
-                zread_url = safe_url_join('https://zread.ai', owner, repo)
-                
-                # 带超时抓取
-                content = await asyncio.wait_for(
-                    self._fetch_with_browser(browser, zread_url),
-                    timeout=SecurityConfig.BROWSER_TIMEOUT
-                )
-                
-                return content
-                
-        except asyncio.TimeoutError:
-            logger.error(f"Browser fetch timeout for {owner}/{repo}")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to fetch Zread: {e}")
-            return None
-    
-    async def _fetch_with_browser(self, browser, url: str) -> str:
-        """浏览器抓取实现"""
-        await browser.open(url)
-        await asyncio.sleep(5)  # 等待加载
-        return await browser.snapshot()
-    
-    async def analyze_project(self, owner: str, repo: str) -> Dict:
-        """综合分析项目 - 带缓存和错误处理"""
-        # 验证输入（再次确认）
-        if not validate_repo_name(owner) or not validate_repo_name(repo):
-            raise ValueError(f"Invalid repo name: {owner}/{repo}")
-        
+
         # 1. 检查缓存
         cached = self.cache.get(owner, repo)
         if cached:
-            cached['from_cache'] = True
-            cached['cached'] = True
-            return cached
-        
-        # 2. 并行抓取
-        github_task = asyncio.create_task(self.fetch_github_api(owner, repo))
-        zread_task = asyncio.create_task(self.fetch_zread_content(owner, repo))
-        
-        github_info, zread_content = await asyncio.gather(
-            github_task, 
-            zread_task,
-            return_exceptions=True  # 防止一个失败影响另一个
-        )
-        
-        # 处理异常
-        if isinstance(github_info, Exception):
-            logger.error(f"GitHub task failed: {github_info}")
-            github_info = None
-        
-        if isinstance(zread_content, Exception):
-            logger.error(f"Zread task failed: {zread_content}")
-            zread_content = None
-        
-        # 3. 生成报告
-        report = await self.generate_comprehensive_report(
-            owner, repo, github_info, zread_content
-        )
-        
-        # 4. 缓存结果（如果成功）
-        if report and report.get('success'):
-            try:
-                self.cache.set(owner, repo, report)
-            except Exception as e:
-                logger.error(f"Failed to cache result: {e}")
-        
+            data = cached['data']
+            data['from_cache'] = True
+            return data
+
+        # 2. 抓取
+        github_info = self.github.repo_info(owner, repo)
+        zread_content = self._fetch_zread(owner, repo)
+
+        # 3. 构建报告
+        report = self._build_report(owner, repo, github_info, zread_content)
+
+        # 4. 缓存
+        try:
+            self.cache.set(owner, repo, report)
+        except Exception as e:
+            logger.error(f"Failed to cache: {e}")
+
         report['from_cache'] = False
-        report['cached'] = False
         return report
-    
-    async def generate_comprehensive_report(
+
+    def _build_report(
         self,
         owner: str,
         repo: str,
         github_info: Optional[Dict],
-        zread_content: Optional[str]
+        zread_content: Optional[str],
     ) -> Dict:
-        """生成综合报告"""
-        
+        """组装完整报告数据结构"""
+        github_url = safe_url_join('https://github.com', owner, repo)
+        zread_url = safe_url_join('https://zread.ai', owner, repo)
+
         report = {
             'owner': owner,
             'repo': repo,
-            'github_url': safe_url_join('https://github.com', owner, repo),
-            'zread_url': safe_url_join('https://zread.ai', owner, repo),
-            'gitview_url': f'http://localhost:8080/?repo={quote(owner, safe="")}/{quote(repo, safe="")}',
-            'analyzed_at': datetime.now().isoformat(),
-            'success': True
+            'github_url': github_url,
+            'zread_url': zread_url,
+            'analyzed_at': datetime.now(timezone.utc).isoformat(),
+            'success': True,
         }
-        
+
         if github_info:
             report['github_info'] = github_info
-        
         if zread_content:
-            report['zread_summary'] = await self.ai_summarize_zread(zread_content)
-        
-        report['full_report'] = await self.ai_generate_full_report(report)
-        
+            report['zread_content'] = zread_content[:5000]  # 截断防过大
+
+        # 生成 Markdown 报告
+        report['full_report'] = _render_markdown(owner, repo, github_info,
+                                                  zread_content, github_url, zread_url)
         return report
-    
-    async def ai_summarize_zread(self, content: str) -> Dict:
-        """AI 总结 Zread 内容"""
-        # 简化版本
-        return {
-            'description': '从 Zread 提取的项目描述',
-            'architecture': '架构要点',
-            'performance': '性能数据',
-            'features': ['功能 1', '功能 2'],
-            'usage': '使用方法'
-        }
-    
-    async def ai_generate_full_report(self, report: Dict) -> str:
-        """AI 生成完整报告"""
-        
-        owner = report['owner']
-        repo = report['repo']
-        github_info = report.get('github_info', {})
-        
-        # 安全的字符串插值（限制长度）
-        description = github_info.get('description', '这是一个开源项目')[:500]
-        
-        markdown = f"""
-好的！已经抓取到相关项目的详细信息，让我来为您解读：
 
-# 📦 {owner}/{repo} 深度解读报告
 
-> **分析时间**: {datetime.now().strftime('%Y-%m-%d %H:%M')}  
-> **数据来源**: Zread 深度解读 + 技术社区 + 互联网信息，仅供参考
+# ============== 报告渲染 ==============
+def _render_markdown(
+    owner: str,
+    repo: str,
+    github_info: Optional[Dict],
+    zread_content: Optional[str],
+    github_url: str,
+    zread_url: str,
+) -> str:
+    """纯函数 — 将数据渲染为 Markdown 报告"""
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+
+    gh = github_info or {}
+    stars = gh.get('stars', 'N/A')
+    forks = gh.get('forks', 'N/A')
+    issues = gh.get('issues', 'N/A')
+    language = gh.get('language', 'Unknown')
+    license_ = gh.get('license', 'Unknown')
+    updated = gh.get('updated', 'N/A')
+    description = gh.get('description', '这是一个开源项目')[:500]
+    default_branch = gh.get('default_branch', 'main')
+
+    # Zread 内容摘要
+    zread_section = ''
+    if zread_content:
+        zread_excerpt = zread_content[:2000]
+        zread_section = f"""
+## 🎯 核心价值
+
+{zread_excerpt}
+
+---
+"""
+
+    return f"""# 📦 {owner}/{repo} 深度解读报告
+
+> **分析时间**: {now_str}
+> **数据来源**: GitHub API + Zread 深度解读 + 互联网信息，仅供参考
 
 ---
 
 ## 💡 一句话介绍
+
 {description}
 
 ## 📊 项目卡片
 
 | 指标 | 值 |
 |------|-----|
-| ⭐ Stars | {github_info.get('stars', 'N/A')} |
-| 🍴 Forks | {github_info.get('forks', 'N/A')} |
-| 📝 Issues | {github_info.get('issues', 'N/A')} |
-| 🐍 语言 | {github_info.get('language', 'Unknown')} |
-| 📄 许可证 | {github_info.get('license', 'Unknown')} |
-| 🕐 最后更新 | {github_info.get('updated', 'N/A')} |
+| ⭐ Stars | {stars} |
+| 🍴 Forks | {forks} |
+| 📝 Issues | {issues} |
+| 🐍 语言 | {language} |
+| 📄 许可证 | {license_} |
+| 🕐 最后更新 | {updated} |
 
 ## 🔗 快速链接
+
 | 平台 | 链接 | 说明 |
 |------|------|------|
-| **GitHub** | {report['github_url']} | 源代码仓库 |
-| **Zread** | {report['zread_url']} | 📖 深度解读（推荐） |
-| **GitView** | {report['gitview_url']} | 🚀 快速概览 |
-
-## 🎯 核心价值
-（从 Zread 和 GitHub 综合提取）
-
+| **GitHub** | {github_url} | 源代码仓库 |
+| **Zread** | {zread_url} | 📖 深度解读（推荐） |
+{zread_section}
 ## 🏗️ 技术架构
-（架构分析）
+
+（从项目结构、依赖、代码组织分析）
 
 ## 📈 性能基准
-（性能数据）
 
-## 🆚 竞品对比
-（竞品分析）
+（基准测试、技术指标）
 
 ## 🚀 快速开始
+
 ```bash
-git clone {report['github_url']}.git
+git clone {github_url}.git
 cd {repo}
 ```
 
 ## 📚 学习路径
-1. **快速了解** → 使用 GitView 查看项目概况（30 秒）
-2. **深度解读** → 阅读 Zread 完整架构和代码解析（5 分钟）
-3. **动手实践** → 在 GitHub 查看 README 和文档
+
+1. **快速了解** → 浏览项目 README 和文档（5 分钟）
+2. **深度解读** → [Zread 完整架构和代码解析]({zread_url})（15 分钟）
+3. **动手实践** → 克隆仓库，运行示例代码
 4. **社区互动** → 浏览 Issues 和 Discussions
 
-## 🌍 社区反馈
-（社区评价整理）
-
-## 🔗 相关资源
-- GitHub: {report['github_url']}
-- Zread: {report['zread_url']}
-
 ---
-*由 Krislu + 🦐 虾软 生成*
+
+*由 GitHub Reader v3.1 生成*
 """
-        
-        return markdown
-    
-    def format_number(self, num: int) -> str:
-        """格式化数字"""
-        if num >= 1000000:
-            return f'{num / 1000000:.1f}M'
-        elif num >= 1000:
-            return f'{num / 1000:.1f}k'
-        return str(num)
-    
-    def relative_time(self, date_str: str) -> str:
-        """转换为相对时间"""
-        if not date_str:
-            return 'N/A'
-        
-        try:
-            date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            diff = (datetime.now(date.tzinfo) - date).days
-            
-            if diff == 0:
-                return '今天'
-            elif diff == 1:
-                return '昨天'
-            elif diff < 7:
-                return f'{diff}天前'
-            elif diff < 30:
-                return f'{diff // 7}周前'
-            elif diff < 365:
-                return f'{diff // 30}个月前'
-            else:
-                return f'{diff // 365}年前'
-        except:
-            return 'N/A'
+
+
+# ============== 工具函数 ==============
+def _format_number(num: int) -> str:
+    """格式化数字：1000→1.0k, 1500000→1.5M"""
+    if num >= 1_000_000:
+        return f'{num / 1_000_000:.1f}M'
+    elif num >= 1_000:
+        return f'{num / 1_000:.1f}k'
+    return str(num)
+
+
+def _relative_time(date_str: str) -> str:
+    """ISO 时间戳 → 相对时间（修复 naive datetime 时区问题）"""
+    if not date_str:
+        return 'N/A'
+    try:
+        # 规范化时区：Z → +00:00，无时区 → 假设 UTC
+        normalized = date_str.replace('Z', '+00:00')
+        date = datetime.fromisoformat(normalized)
+        now_utc = datetime.now(timezone.utc)
+        # 确保都是 aware datetime
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=timezone.utc)
+        diff = (now_utc - date).days
+
+        if diff == 0:
+            return '今天'
+        elif diff == 1:
+            return '昨天'
+        elif diff < 7:
+            return f'{diff}天前'
+        elif diff < 30:
+            return f'{diff // 7}周前'
+        elif diff < 365:
+            return f'{diff // 30}个月前'
+        else:
+            return f'{diff // 365}年前'
+    except (ValueError, TypeError):
+        return 'N/A'
 
 
 # ============== Skill 入口 ==============
-async def run(context):
-    """Skill 入口函数"""
-    
+def run(context):
+    """
+    Skill 入口函数（同步）。
+
+    context 预期包含：
+        - message: str  — 用户消息（含 GitHub URL）
+        - web_fetch: callable  — web_fetch 工具函数（可选）
+
+    Returns:
+        {
+            "report": str,        # Markdown 报告
+            "from_cache": bool,
+            "zread_url": str,
+            "success": bool,
+            "error": str | None,
+        }
+    """
     try:
-        message = context.get('message', '')
-        
-        # 解析 GitHub URL
-        reader = SecureGitHubReaderV3()
+        message = context.get('message', '') if isinstance(context, dict) else str(context)
+        web_fetch_fn = context.get('web_fetch') if isinstance(context, dict) else None
+
+        reader = SecureGitHubReaderV3(web_fetch_fn=web_fetch_fn)
         target = reader.parse_github_url(message)
-        
+
         if not target:
             return {
+                'success': False,
                 'error': '未找到有效的 GitHub URL',
                 'hint': '请提供类似 https://github.com/owner/repo 的链接',
-                'success': False
             }
-        
+
         owner, repo = target
-        
-        # 分析项目
-        result = await reader.analyze_project(owner, repo)
-        
+        result = reader.analyze(owner, repo)
+
         return {
             'report': result.get('full_report', ''),
             'from_cache': result.get('from_cache', False),
-            'cached': result.get('cached', False),
             'zread_url': result.get('zread_url', ''),
-            'success': result.get('success', False)
+            'success': result.get('success', False),
+            'error': result.get('error'),
         }
-        
+
     except Exception as e:
         logger.error(f"Skill execution failed: {e}")
         return {
-            'error': '分析失败，请稍后重试',
-            'success': False
+            'success': False,
+            'error': f'分析失败: {e}',
         }
 
 
+# ============== 自测 ==============
 if __name__ == '__main__':
-    # 测试
-    import asyncio
-    
-    async def test():
-        result = await run({'message': 'https://github.com/microsoft/BitNet'})
-        print(result.get('report', 'No report'))
-    
-    asyncio.run(test())
+    # 测试 URL 解析
+    reader = SecureGitHubReaderV3()
+    tests = [
+        ('https://github.com/microsoft/BitNet', ('microsoft', 'BitNet')),
+        ('microsoft/BitNet', ('microsoft', 'BitNet')),
+        ('https://github.com/HKUDS/nanobot.git', ('HKUDS', 'nanobot')),
+        ('not-a-github-url', None),
+        ('github.com/invalid/../traversal', None),
+        ('github.com/valid/repo?tab=readme', ('valid', 'repo')),
+    ]
+    for msg, expected in tests:
+        result = reader.parse_github_url(msg)
+        status = '✅' if result == expected else '❌'
+        print(f"{status} parse({msg!r}) → {result} (expected {expected})")
+
+    # 测试 GitHub API（需要网络）
+    print("\n📡 测试 GitHub API...")
+    github = GitHubAPIClient()
+    info = github.repo_info('microsoft', 'BitNet')
+    if info:
+        print(f"  ✅ Stars: {info['stars']}, Language: {info['language']}")
+    else:
+        print("  ⚠️  API 调用失败（可能需要网络/Token）")
+
+    # 测试缓存
+    print("\n📦 测试缓存...")
+    cache = SecureGitHubReaderCache()
+    test_data = {
+        'owner': 'test', 'repo': 'test', 'analyzed_at': datetime.now(timezone.utc).isoformat(),
+    }
+    cache.set('test', 'test', test_data)
+    cached = cache.get('test', 'test')
+    print(f"  ✅ 缓存命中" if cached else "  ❌ 缓存失败")
+
+    print("\n✅ 自测完成")

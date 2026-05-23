@@ -1,122 +1,123 @@
-# 📦 GitHub Reader Skill v3.1
+# GitHub Reader Skill v3.1.4 - 深度解读 GitHub 项目
 
-**深度解读 GitHub 项目 / Deeply Analyze GitHub Projects**
+[![Version](https://img.shields.io/badge/version-3.1.4-blue.svg)](https://github.com/Krislu1221/github-reader-skill)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 
----
-
-## 🎯 简介 / Introduction
-
-**中文**: GitHub Reader Skill 是一个强大的 AI 工具，只需输入 GitHub 仓库链接，即可自动生成深度分析报告，包括技术架构、性能基准、应用场景等。该skill引用了部分zread.ai的信息。
-
-**English**: GitHub Reader Skill is a powerful AI tool that automatically generates in-depth analysis reports including technical architecture, performance benchmarks, and application scenarios by simply inputting a GitHub repository link.
+> 自动解读 GitHub 项目，组合 GitHub API + Zread 深度解读，生成结构化 Markdown 报告
 
 ---
 
-## ⚡ 快速开始 / Quick Start
+## 设计理念
 
-### 安装 / Install
+GitHub Reader 的核心思路是**组合三个来源的数据**生成一份完整的项目解读报告：
 
-```bash
-# 使用 ClawHub / Using ClawHub
-clawhub install github-reader
+1. **GitHub REST API** — 实时元数据（Stars、Forks、Issues、语言、许可证）
+2. **Zread** — 第三方深度代码解读（架构分析、性能基准、功能拆解）
+3. **结构化模板** — 统一的 Markdown 报告格式，确保每次输出一致
 
-# 或手动安装 / Or manual installation
-cd github-reader/
-./install_v3_secure.sh
+### 核心设计原则
+
+- **输入安全优先** — 所有 repo/owner 名经过严格白名单校验
+- **无外部依赖** — GitHub API 使用标准库 `urllib`，不需要第三方 HTTP 包
+- **工具注入模式** — `web_fetch` 通过构造函数注入而非 import
+- **缓存与防抖** — 24 小时文件缓存 + API 速率限制
+
+---
+
+## 快速开始
+
+### 命令方式
 ```
-
-### 使用 / Usage
-
-```bash
-# 命令模式 / Command mode
 /github-read microsoft/BitNet
+```
 
-# 自然语言 / Natural language
-帮我解读这个仓库 / Help me analyze this repo
+### 自然语言
+```
+帮我解读这个仓库：https://github.com/HKUDS/nanobot
+```
+
+### 程序调用
+```python
+from github_reader_v3_secure import SecureGitHubReaderV3
+
+reader = SecureGitHubReaderV3(web_fetch_fn=web_fetch)
+result = reader.analyze("microsoft", "BitNet")
+print(result['full_report'])
 ```
 
 ---
 
-## 🛡️ 安全特性 / Security Features
+## 输出示例
 
-- ✅ **输入验证** / **Input Validation** - 防止 URL 注入 / Prevents URL injection
-- ✅ **URL 编码** / **URL Encoding** - 防止 SSRF 攻击 / Prevents SSRF attacks
-- ✅ **缓存验证** / **Cache Validation** - 防止数据投毒 / Prevents data poisoning
-- ✅ **并发控制** / **Concurrency Control** - 资源保护 / Resource protection
-- ✅ **超时管理** / **Timeout Management** - 防止挂起 / Prevents hanging
+```markdown
+# 📦 microsoft/BitNet 深度解读报告
+
+> **分析时间**: 2026-05-23 23:04
+> **数据来源**: GitHub API + Zread 深度解读 + 互联网信息
+
+## 💡 一句话介绍
+Official inference framework for 1-bit LLMs
+
+## 📊 项目卡片
+| 指标 | 值 |
+|------|-----|
+| ⭐ Stars | 39.1k |
+| 🍴 Forks | 3.6k |
+| 📝 Issues | 317 |
+| 🐍 语言 | Python |
+| 📄 许可证 | MIT |
+```
 
 ---
 
-## 📊 输出内容 / Output
+## 🛡️ 安全特性
 
-分析报告包含 / Analysis report includes:
+### P0 高危修复
+- ✅ 输入验证 — 白名单正则，防 URL 注入
+- ✅ 安全 URL 拼接 — `urllib.parse.quote`，防 SSRF
+- ✅ 缓存数据验证 — JSON 结构校验 + 文件大小限制，防投毒
+- ✅ 路径安全检查 — 绝对路径 + 目录边界，防遍历
 
-1. 💡 **一句话介绍** / **One-sentence introduction**
-2. 📊 **项目卡片** / **Project cards** (Stars, Forks, Issues)
-3. 🏗️ **技术架构** / **Technical architecture**
-4. 📈 **性能基准** / **Performance benchmarks**
-5. 🆚 **竞品对比** / **Competitor comparison**
-6. 🚀 **快速开始** / **Quick start guide**
-7. 📚 **学习路径** / **Learning path**
+### P1 中危修复
+- ✅ API 频率限制 — ≥1秒间隔
+- ✅ 超时控制 — 10秒 API 超时
 
 ---
 
-## ⚙️ 配置 / Configuration
+## ⚙️ 配置
 
 ```bash
-# 缓存配置 / Cache settings
-export GITVIEW_CACHE_TTL="24"           # 缓存时间（小时）/ Cache TTL (hours)
-export GITVIEW_MAX_BROWSER="3"          # 最大并发 / Max concurrency
-export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
+export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # 缓存目录
+export GITVIEW_CACHE_TTL="24"                   # 缓存时间（小时）
+export GITVIEW_GITHUB_DELAY="1.0"               # API 调用间隔（秒）
+export GITVIEW_GITHUB_TIMEOUT="10"              # API 超时（秒）
 ```
 
 ---
 
-## 📈 性能 / Performance
+## v3.1.4 vs v3.1
 
-| 场景 / Scenario | 耗时 / Time |
-|----------------|-------------|
-| 首次分析 / First analysis | 10-15 秒 / seconds |
-| 缓存命中 / Cache hit | < 1 秒 / second |
-
----
-
-## 📁 文件结构 / File Structure
-
-```
-github-reader/
-├── github_reader_v3_secure.py       # v3.1 主代码 / v3.1 Secure main code
-├── __init__.py                      # Skill 注册 / Skill registration
-├── clawhub.json                     # ClawHub 元数据 / ClawHub metadata
-├── SECURITY.md                      # 安全指南 / Security guide
-├── RELEASE_NOTES.md                 # 发布说明 / Release notes
-├── README_BILINGUAL.md              # 简洁中英对照 / Concise bilingual README
-├── README_EN_CN.md                  # 详细中英对照 / Detailed bilingual README
-├── PACKAGE.md                       # 打包说明 / Package guide
-└── install_v3_secure.sh             # 安装脚本 / Installation script
-```
+| 维度 | v3.1 | v3.1.4 |
+|------|------|--------|
+| **GitHub API** | `from openclaw.tools import web_fetch` ❌ (虚构 API) | `urllib` 标准库 ✅ |
+| **Zread 抓取** | `from openclaw.tools import browser` ❌ | `web_fetch_fn` 注入 ✅ |
+| **asyncio 依赖** | 全链路 async | **纯同步**，Agent 直接调用 |
+| **时区处理** | `datetime.now(None)` crash | 统一 `timezone.utc` ✅ |
+| **缓存键** | SHA256（无意义） | MD5（去重用途，正确） |
+| **版本号** | v3.0/v3.1 混用 | 统一 v3.1.4 |
+| **署名** | `🦐 虾软` | `Kris Lu` |
 
 ---
 
-## 🔗 相关链接 / Links
+## 👤 作者
 
-- **GitHub**: https://github.com/your-repo/github-reader-skill
-- **ClawHub**: `clawhub install github-reader`
-- **文档 / Docs**: See README_EN_CN.md for full documentation
+Kris Lu <krislu666@foxmail.com>
 
----
-
-## 📄 许可证 / License
+## 📄 许可
 
 MIT License
 
 ---
 
-## 👨‍💻 作者 / Author
-
-**Krislu + 🦐 虾软**
-
----
-
-*版本 / Version: v3.1 (安全加固版 / Security Hardened)*  
-*更新 / Updated: 2026-03-13*
+*v3.1.4 · 2026-05-23*
