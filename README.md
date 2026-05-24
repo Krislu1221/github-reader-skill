@@ -1,123 +1,94 @@
-# GitHub Reader Skill v3.1.4 - 深度解读 GitHub 项目
+# 📦 GitHub Reader Skill v3.2
 
-[![Version](https://img.shields.io/badge/version-3.1.4-blue.svg)](https://github.com/Krislu1221/github-reader-skill)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
-
-> 自动解读 GitHub 项目，组合 GitHub API + Zread 深度解读，生成结构化 Markdown 报告
+**深度解读 GitHub 项目 — 纯 GitHub REST API，无第三方依赖**
 
 ---
 
-## 设计理念
+## 🎯 简介
 
-GitHub Reader 的核心思路是**组合三个来源的数据**生成一份完整的项目解读报告：
-
-1. **GitHub REST API** — 实时元数据（Stars、Forks、Issues、语言、许可证）
-2. **Zread** — 第三方深度代码解读（架构分析、性能基准、功能拆解）
-3. **结构化模板** — 统一的 Markdown 报告格式，确保每次输出一致
-
-### 核心设计原则
-
-- **输入安全优先** — 所有 repo/owner 名经过严格白名单校验
-- **无外部依赖** — GitHub API 使用标准库 `urllib`，不需要第三方 HTTP 包
-- **工具注入模式** — `web_fetch` 通过构造函数注入而非 import
-- **缓存与防抖** — 24 小时文件缓存 + API 速率限制
+只需输入 GitHub 仓库链接，自动生成分析报告（项目卡片、README 摘要、快速开始等）。所有数据来自 GitHub 官方 REST API，不经过任何第三方服务。
 
 ---
 
-## 快速开始
+## ⚡ 快速开始
 
-### 命令方式
+### 安装
+
+```bash
+clawhub install github-reader
+
+# 或手动安装
+cd github-reader/
+./install_v3_secure.sh
 ```
+
+### 使用
+
+```bash
+# 命令模式（推荐）
 /github-read microsoft/BitNet
+
+# GitHub URL
+https://github.com/HKUDS/nanobot
+
+# 自然语言（需包含 owner/repo）
+分析 HKUDS/nanobot
 ```
 
-### 自然语言
-```
-帮我解读这个仓库：https://github.com/HKUDS/nanobot
-```
-
-### 程序调用
-```python
-from github_reader_v3_secure import SecureGitHubReaderV3
-
-reader = SecureGitHubReaderV3(web_fetch_fn=web_fetch)
-result = reader.analyze("microsoft", "BitNet")
-print(result['full_report'])
-```
+> ⚠️ 泛化语句（如 "帮我分析这个仓库"）不会触发，避免误触发。
 
 ---
 
-## 输出示例
+## 🔒 隐私与安全
 
-```markdown
-# 📦 microsoft/BitNet 深度解读报告
-
-> **分析时间**: 2026-05-23 23:04
-> **数据来源**: GitHub API + Zread 深度解读 + 互联网信息
-
-## 💡 一句话介绍
-Official inference framework for 1-bit LLMs
-
-## 📊 项目卡片
-| 指标 | 值 |
-|------|-----|
-| ⭐ Stars | 39.1k |
-| 🍴 Forks | 3.6k |
-| 📝 Issues | 317 |
-| 🐍 语言 | Python |
-| 📄 许可证 | MIT |
-```
+- ✅ **纯 GitHub REST API** — 只与 `api.github.com` 通信
+- ✅ **无第三方依赖** — Zread、GitView 等已移除
+- ✅ **本地缓存** — 数据不离开设备（缓存到 `/tmp/gitview_cache`）
+- ✅ **输入验证** — 防 URL 注入、SSRF、路径遍历、缓存投毒
 
 ---
 
-## 🛡️ 安全特性
+## 📊 输出内容
 
-### P0 高危修复
-- ✅ 输入验证 — 白名单正则，防 URL 注入
-- ✅ 安全 URL 拼接 — `urllib.parse.quote`，防 SSRF
-- ✅ 缓存数据验证 — JSON 结构校验 + 文件大小限制，防投毒
-- ✅ 路径安全检查 — 绝对路径 + 目录边界，防遍历
-
-### P1 中危修复
-- ✅ API 频率限制 — ≥1秒间隔
-- ✅ 超时控制 — 10秒 API 超时
+分析报告包含：
+1. 💡 项目简介
+2. 📊 项目卡片（Stars、Forks、Issues、语言、许可证等）
+3. 📖 README 摘要
+4. 🔗 GitHub 链接
+5. 🚀 快速开始（clone + cd）
+6. 🔒 数据流向声明
 
 ---
 
 ## ⚙️ 配置
 
 ```bash
-export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # 缓存目录
-export GITVIEW_CACHE_TTL="24"                   # 缓存时间（小时）
-export GITVIEW_GITHUB_DELAY="1.0"               # API 调用间隔（秒）
-export GITVIEW_GITHUB_TIMEOUT="10"              # API 超时（秒）
+# 缓存配置
+export GITVIEW_CACHE_TTL="24"           # 缓存时间（小时）
+export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔（秒）
+export GITVIEW_GITHUB_TIMEOUT="10"      # API 超时（秒）
 ```
 
 ---
 
-## v3.1.4 vs v3.1
+## 📈 性能
 
-| 维度 | v3.1 | v3.1.4 |
-|------|------|--------|
-| **GitHub API** | `from openclaw.tools import web_fetch` ❌ (虚构 API) | `urllib` 标准库 ✅ |
-| **Zread 抓取** | `from openclaw.tools import browser` ❌ | `web_fetch_fn` 注入 ✅ |
-| **asyncio 依赖** | 全链路 async | **纯同步**，Agent 直接调用 |
-| **时区处理** | `datetime.now(None)` crash | 统一 `timezone.utc` ✅ |
-| **缓存键** | SHA256（无意义） | MD5（去重用途，正确） |
-| **版本号** | v3.0/v3.1 混用 | 统一 v3.1.4 |
-| **署名** | `🦐 虾软` | `Kris Lu` |
+| 场景 | 耗时 |
+|------|------|
+| 首次分析 | 3-5 秒 |
+| 缓存命中 | < 0.1 秒 |
 
 ---
 
-## 👤 作者
-
-Kris Lu <krislu666@foxmail.com>
-
-## 📄 许可
+## 📄 许可证
 
 MIT License
 
+## 👨‍💻 作者
+
+**Krislu + 🦐 虾软**
+
 ---
 
-*v3.1.4 · 2026-05-23*
+*版本: v3.2（纯 API 安全版）*  
+*更新: 2026-05-24*

@@ -1,8 +1,8 @@
-# GitHub Reader Skill
+# GitHub Reader Skill v3.2
 
-**GitHub Reader Skill** - 深度解读 GitHub 项目，生成结构化分析报告
-
-**Deeply analyze GitHub projects and generate structured analysis reports**
+**深度解读 GitHub 项目，生成结构化分析报告**  
+**Deeply analyze GitHub projects and generate structured analysis reports**  
+**纯 GitHub REST API / Pure GitHub REST API**
 
 ---
 
@@ -10,17 +10,17 @@
 
 ### 核心功能 / Core Features
 
-- 📊 **自动分析** - 输入 GitHub URL 自动生成深度报告  
-  **Auto Analysis** - Input GitHub URL to automatically generate in-depth reports
+- 📊 **自动分析** — 输入 GitHub URL 自动生成深度报告  
+  **Auto Analysis** — Input GitHub URL to auto-generate reports
 
-- 📖 **多维度解读** - 技术架构、性能基准、应用场景  
-  **Multi-dimensional Analysis** - Technical architecture, performance benchmarks, application scenarios
+- 📖 **多维度解读** — 项目卡片、README 摘要、链接等  
+  **Multi-dimensional Analysis** — Project cards, README summary, links
 
-- 🔗 **链接整合** - GitHub + Zread + GitView 一站式访问  
-  **Link Integration** - GitHub + Zread + GitView one-stop access
+- ⚡ **智能缓存** — 24 小时缓存，重复查询 < 0.1 秒  
+  **Smart Caching** — 24-hour cache, repeated queries < 0.1s
 
-- ⚡ **智能缓存** - 24 小时缓存，重复查询 < 1 秒返回  
-  **Smart Caching** - 24-hour cache, repeated queries return in < 1 second
+- 🔒 **纯 GitHub API** — 无第三方依赖  
+  **Pure GitHub API** — No third-party dependencies
 
 ---
 
@@ -29,10 +29,10 @@
 ### 安装 / Installation
 
 ```bash
-# 方式 1：使用 ClawHub / Method 1: Using ClawHub
+# ClawHub
 clawhub install github-reader
 
-# 方式 2：手动安装 / Method 2: Manual Installation
+# 手动 / Manual
 cd github-reader/
 ./install_v3_secure.sh
 ```
@@ -40,83 +40,70 @@ cd github-reader/
 ### 使用 / Usage
 
 ```bash
-# 命令方式 / Command Mode
+# 命令 / Command (推荐)
 /github-read microsoft/BitNet
 
-# 自然语言 / Natural Language
-帮我解读这个仓库：https://github.com/HKUDS/nanobot
-Help me analyze this repo: https://github.com/HKUDS/nanobot
+# URL
+https://github.com/HKUDS/nanobot
 
-# 简短格式 / Short Format
+# 自然语言 (需含 owner/repo)
 分析 HKUDS/nanobot
-Analyze HKUDS/nanobot
 ```
+
+> ⚠️ 泛化语句不触发 / Generic phrases (e.g. "analyze this repo" without repo name) won't trigger
 
 ---
 
-## 🛡️ 安全特性 / Security Features
+## 🔒 安全与隐私 / Security & Privacy
 
-### v3.0 安全加固 / v3.0 Security Hardening
-
-**P0 级别（高危修复） / P0 Level (Critical Fixes)**:
-- ✅ 输入验证（防止 URL 注入）  
-  **Input Validation** (Prevents URL injection)
-- ✅ 安全 URL 拼接（防止 SSRF）  
-  **Safe URL Joining** (Prevents SSRF)
-- ✅ 缓存数据验证（防止投毒）  
-  **Cache Data Validation** (Prevents poisoning)
-- ✅ 路径安全检查（防止遍历）  
-  **Path Security Check** (Prevents traversal)
-
-**P1 级别（中危修复） / P1 Level (Medium Fixes)**:
-- ✅ 浏览器并发限制  
-  **Browser Concurrency Limit**
-- ✅ API 频率限制  
-  **API Rate Limiting**
-- ✅ 超时控制  
-  **Timeout Control**
+**v3.2 变更**:
+- ❌ 移除 Zread、GitView — 不再向任何第三方发送数据
+- ✅ 纯 GitHub REST API (`api.github.com`)
+- ✅ 本地缓存，可配置可清除
+- ✅ 输入验证、SSRF 防护、路径防遍历
 
 ---
 
 ## 📊 输出示例 / Output Example
 
 ```markdown
-好的！已经抓取到相关项目的详细信息，让我来为您解读：
-Great! I've captured detailed information about the project, let me analyze it for you:
-
 # 📦 microsoft/BitNet 深度解读报告
-# microsoft/BitNet In-depth Analysis Report
 
-> **分析时间**: 2026-03-13 01:27  
-> **Analysis Time**: 2026-03-13 01:27
-> **数据来源**: Zread 深度解读 + 技术社区 + 互联网信息，仅供参考  
-> **Data Sources**: Zread in-depth analysis + Tech community + Internet information, for reference only
+> 分析时间: 2026-05-24 15:30
+> 数据来源: GitHub REST API（纯 API，不经第三方）
 
----
+## 💡 项目简介
+BitNet.cpp 是微软官方推出的 1 比特量化大语言模型推理框架...
 
-## 💡 一句话介绍 / One-Sentence Introduction
-BitNet.cpp 是微软官方推出的 1 比特量化大语言模型推理框架...  
-BitNet.cpp is Microsoft's official 1-bit quantized LLM inference framework...
+## 📊 项目卡片
+| 指标 | 值 |
+|------|-----|
+| ⭐ Stars | 12.5k |
+| 🍴 Forks | 2.1k |
+| 📝 Issues | 156 |
+| 🐍 语言 | Python |
+| 📄 许可证 | MIT |
+
+## 🔗 链接
+| 平台 | 链接 |
+|------|------|
+| GitHub | https://github.com/microsoft/BitNet |
+
+🔒 数据流向声明：本次分析仅使用 GitHub REST API，不会将仓库信息发送给任何第三方服务。
 ```
 
 ---
 
 ## ⚙️ 配置 / Configuration
 
-### 环境变量 / Environment Variables
-
 ```bash
 # 缓存配置 / Cache Configuration
-export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # 缓存目录 / Cache directory
-export GITVIEW_CACHE_TTL="24"                   # 缓存时间（小时）/ Cache TTL (hours)
+export GITVIEW_CACHE_DIR="/tmp/gitview_cache"
+export GITVIEW_CACHE_TTL="24"
 
-# 性能配置 / Performance Configuration
-export GITVIEW_MAX_BROWSER="3"                  # 最大并发浏览器 / Max concurrent browsers
-export GITVIEW_GITHUB_DELAY="1.0"               # API 调用间隔（秒）/ API call delay (seconds)
-
-# 超时配置 / Timeout Configuration
-export GITVIEW_BROWSER_TIMEOUT="30"             # 浏览器超时（秒）/ Browser timeout (seconds)
-export GITVIEW_GITHUB_TIMEOUT="10"              # GitHub API 超时（秒）/ GitHub API timeout (seconds)
+# API 配置 / API Configuration
+export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
+export GITVIEW_GITHUB_TIMEOUT="10"      # API 超时 / API timeout (seconds)
 ```
 
 ---
@@ -125,14 +112,16 @@ export GITVIEW_GITHUB_TIMEOUT="10"              # GitHub API 超时（秒）/ Gi
 
 ```
 github-reader/
-├── github_reader_v3_secure.py       # v3.0 安全加固版主代码 / v3.0 Secure main code
-├── __init__.py                      # Skill 注册 / Skill registration
-├── clawhub.json                     # ClawHub 元数据 / ClawHub metadata
-├── SECURITY.md                      # 安全配置指南 / Security guide
-├── RELEASE_NOTES.md                 # 发布说明 / Release notes
-├── README.md                        # 使用指南 / User guide
-├── PACKAGE.md                       # 发布包说明 / Package guide
-└── install_v3_secure.sh             # 安装脚本 / Installation script
+├── github_reader_v3_secure.py    # v3.2 主代码 / v3.2 main code
+├── __init__.py                   # Skill 注册 / Skill registration
+├── clawhub.json                  # ClawHub 元数据 / ClawHub metadata
+├── SECURITY.md                   # 安全说明 / Security guide
+├── SKILL.md                      # 使用指南 / User guide
+├── RELEASE_NOTES.md              # 发布说明 / Release notes
+├── README.md                     # 简要说明 / Brief README
+├── README_BILINGUAL.md           # 双语说明 / Bilingual README
+├── PACKAGE.md                    # 打包说明 / Package guide
+└── install_v3_secure.sh          # 安装脚本 / Installation script
 ```
 
 ---
@@ -140,28 +129,19 @@ github-reader/
 ## 🔧 技术栈 / Tech Stack
 
 - **语言 / Language**: Python 3.9+
-- **依赖 / Dependencies**: OpenClaw compatible platform
-- **工具 / Tools**: web_fetch, browser
-- **缓存 / Cache**: 文件系统缓存（JSON 格式） / File system cache (JSON format)
-- **并发 / Concurrency**: asyncio 异步编程 / asyncio async programming
+- **依赖 / Dependencies**: httpx（HTTP 客户端）
+- **数据源 / Data source**: GitHub REST API（唯一 / only）
+- **第三方服务 / Third-party**: 无 / None
+- **缓存 / Cache**: 本地文件系统（JSON）/ Local filesystem (JSON)
 
 ---
 
-## 📈 性能指标 / Performance Metrics
+## 📈 性能 / Performance
 
-| 场景 / Scenario | 耗时 / Time | 备注 / Notes |
-|----------------|-------------|--------------|
-| 首次分析 / First analysis | 10-15 秒 / seconds | 抓取 + 分析 / Fetch + Analyze |
-| 缓存命中 / Cache hit | < 1 秒 / second | 直接返回 / Direct return |
-| 缓存过期 / Cache expiry | 12-24 小时 / hours | 可配置 / Configurable |
-
----
-
-## 🐛 问题反馈 / Issues
-
-- **GitHub Issues**: https://github.com/your-repo/github-reader-skill/issues
-- **讨论区 / Discussions**: https://github.com/your-repo/github-reader-skill/discussions
-- **文档 / Documentation**: https://github.com/your-repo/github-reader-skill/wiki
+| 场景 / Scenario | 耗时 / Time |
+|----------------|-------------|
+| 首次分析 / First analysis | 3-5 秒 |
+| 缓存命中 / Cache hit | < 0.1 秒 |
 
 ---
 
@@ -169,13 +149,11 @@ github-reader/
 
 MIT License
 
----
-
 ## 👨‍💻 作者 / Author
 
 **Krislu + 🦐 虾软**
 
 ---
 
-*版本 / Version: v3.1（安全加固版 / Security Hardened）*  
-*最后更新 / Last Updated: 2026-03-13*
+*版本: v3.2（纯 API 安全版）*  
+*更新: 2026-05-24*

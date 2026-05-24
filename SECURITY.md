@@ -1,148 +1,139 @@
-# GitHub Reader Skill Security Guide
+# GitHub Reader Skill — 安全说明
 
-**GitHub Reader Skill 安全配置指南**
-
----
-
-## 🔒 Security Features / 安全特性
-
-v3.1 Security Hardened Version has fixed the following security issues:  
-v3.1 安全加固版已修复以下安全问题：
-
-### P0 Level (Critical Fixes) / P0 级别（高危修复）
-
-- ✅ **Input Validation** / **输入验证** - Prevents URL injection / 防止 URL 注入
-- ✅ **Safe URL Joining** / **安全 URL 拼接** - Prevents SSRF attacks / 防止 SSRF 攻击
-- ✅ **Cache Data Validation** / **缓存数据验证** - Prevents poisoning / 防止投毒
-- ✅ **Path Security Check** / **路径安全检查** - Prevents traversal / 防止遍历
-
-### P1 Level (Medium Fixes) / P1 级别（中危修复）
-
-- ✅ **Browser Concurrency Limit** / **浏览器并发限制**
-- ✅ **API Rate Limiting** / **API 频率限制**
-- ✅ **Timeout Control** / **超时控制**
-
-### P2 Level (Low Fixes) / P2 级别（低危修复）
-
-- ✅ **Error Handling Optimization** / **错误处理优化**
-- ✅ **Logging** / **日志记录**
-- ✅ **Environment Variable Configuration** / **环境变量配置**
+**v3.2 安全架构说明**
+*最后更新: 2026-05-24*
 
 ---
 
-## ⚙️ Security Configuration / 安全配置
+## 🔒 安全设计原则
 
-### Environment Variables / 环境变量
+本 skill 仅使用 **GitHub 官方 REST API**（`api.github.com`），不经过任何第三方服务。
+所有安全防护措施在 `github_reader_v3_secure.py` 中有对应的代码实现。
+
+---
+
+## 🛡️ 安全防护清单（代码对应）
+
+### 输入验证
+- **函数**: `validate_repo_name()` (github_reader_v3_secure.py)
+- **规则**: 正则 `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$` + 路径遍历检测（`..` 拒绝）
+- **覆盖**: owner 和 repo 名称均经过验证
+
+### SSRF 防护
+- **函数**: `safe_url_join()` (github_reader_v3_secure.py)
+- **实现**: 使用 `urllib.parse.quote()` 对所有路径组件编码
+- **覆盖**: 所有 GitHub API URL 构造
+
+### 路径遍历防护
+- **函数**: `safe_file_path()` (github_reader_v3_secure.py)
+- **实现**: `os.path.abspath()` + `os.path.normpath()` + `startswith()` 检查
+- **覆盖**: 所有缓存文件路径
+
+### 缓存防投毒
+- **类**: `SecureGitHubReaderCache` (github_reader_v3_secure.py)
+- **措施**: 文件大小限制、JSON 结构验证、原子写入（temp file + rename）
+- **覆盖**: 所有缓存读写操作
+
+### 速率限制
+- **方法**: `_rate_limit()` (github_reader_v3_secure.py)
+- **实现**: 滑动窗口，默认 1 秒间隔
+- **覆盖**: 所有 GitHub API 调用
+
+### 并发控制
+- **实现**: `asyncio.Semaphore`，默认最多 3 个并发请求
+- **覆盖**: API 调用和 README 获取
+
+### 超时控制
+- **实现**: HTTP 客户端 timeout + API 级超时（默认 10 秒）
+- **覆盖**: 所有网络请求
+
+### 数据隐私
+- **策略**: 仅与 `api.github.com` 通信，不向任何第三方发送数据
+- **透明**: 分析报告中包含数据流向声明
+- **用户控制**: 缓存目录和 TTL 通过环境变量可配
+
+---
+
+## 🔧 安全配置
 
 ```bash
-# Cache Configuration / 缓存配置
-export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # Cache directory / 缓存目录
-export GITVIEW_CACHE_TTL="24"                   # Cache TTL (hours) / 缓存时间（小时）
-export GITVIEW_CACHE_MAX_SIZE="1"               # Max cache file (MB) / 最大缓存文件（MB）
+# 缓存安全
+export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # 缓存目录
+export GITVIEW_CACHE_TTL="24"                   # 缓存时间（小时）
+export GITVIEW_CACHE_MAX_SIZE="1"               # 最大缓存文件（MB）
 
-# Performance Configuration / 性能配置
-export GITVIEW_MAX_BROWSER="3"                  # Max concurrent browsers / 最大并发浏览器数
-export GITVIEW_GITHUB_DELAY="2.0"               # API call delay (seconds) / API 调用间隔（秒）
-
-# Timeout Configuration / 超时配置
-export GITVIEW_BROWSER_TIMEOUT="30"             # Browser timeout (seconds) / 浏览器超时（秒）
-export GITVIEW_GITHUB_TIMEOUT="10"              # GitHub API timeout (seconds) / GitHub API 超时（秒）
+# 性能安全
+export GITVIEW_GITHUB_DELAY="1.0"               # API 调用间隔（秒）
+export GITVIEW_GITHUB_TIMEOUT="10"              # API 超时（秒）
 ```
 
 ---
 
-## 🔍 Security Testing / 安全测试
+## 🧪 安全测试
 
-### Test Cases / 测试用例
+如需自行验证安全防护，可用以下测试用例：
 
-```bash
-# 1. Normal request / 正常请求
-/github-read microsoft/BitNet
-# ✅ Should succeed / 应该成功
+```python
+# 1. 输入验证 — 路径遍历应被拒绝
+assert validate_repo_name("../etc/passwd") == False
+assert validate_repo_name("repo..config") == False
+assert validate_repo_name("microsoft/BitNet") == False  # 不含 /
+assert validate_repo_name("valid-repo") == True
 
-# 2. Path traversal attempt / 路径遍历尝试
-/github-read ../etc/passwd
-# ❌ Should be rejected / 应该拒绝
+# 2. URL 拼接 — 特殊字符应被编码
+result = safe_url_join("https://api.github.com/repos", "user", "repo%00evil")
+assert "%2500evil" in result  # % → %25
 
-# 3. Special character attempt / 特殊字符尝试
-/github-read user%20name/repo
-# ❌ Should be rejected / 应该拒绝
-
-# 4. Long name attempt / 超长名称尝试
-/github-read a{150 characters}/repo
-# ❌ Should be rejected (>100 characters) / 应该拒绝（>100 字符）
-
-# 5. Concurrency stress test / 并发压力测试
-# Send 10 requests simultaneously / 同时发送 10 个请求
-# ✅ Should limit to max 3 concurrent / 应该限制为最多 3 个并发
-
-# 6. Timeout test / 超时测试
-# Simulate 60s network delay / 模拟网络延迟 60 秒
-# ✅ Should timeout after 30s / 应该 30 秒后超时返回
+# 3. 文件路径 — 不能逃逸出基础目录
+import os
+base = "/tmp/test"
+unsafe = os.path.join(base, "../../etc/passwd")
+try:
+    safe_file_path(base, unsafe)
+    assert False, "Should have raised"
+except ValueError:
+    pass
 ```
 
 ---
 
-## 🚨 Emergency Response / 应急响应
+## 📂 依赖审查
 
-### If Security Issue Occurs / 如果发生安全问题
+| 依赖 | 用途 | 风险 |
+|------|------|------|
+| `httpx` | HTTP 客户端 | 低 — 仅用于 GitHub API |
+| `asyncio` | 异步编程 | 低 — Python 标准库 |
+| `hashlib`, `json`, `re`, `os` | 工具 | 低 — Python 标准库 |
+| `urllib.parse` | URL 编码 | 低 — Python 标准库 |
 
-1. **Stop Skill Immediately** / **立即停止 Skill**
+本 skill **不依赖**任何第三方数据源（Zread、GitView 等已移除）。
+
+---
+
+## 🚨 应急响应
+
+如遇到安全问题：
+
+1. **停止服务**
    ```bash
    openclaw gateway stop
    ```
 
-2. **Clear Cache** / **清理缓存**
+2. **清除缓存**
    ```bash
    rm -rf /tmp/gitview_cache
    ```
 
-3. **Check Logs** / **检查日志**
+3. **检查日志**
    ```bash
    tail -n 100 ~/.openclaw/logs/gateway.log
    ```
 
-4. **Update to Latest Version** / **更新到最新版本**
+4. **更新到最新版本**
    ```bash
    clawhub update github-reader
    ```
 
 ---
 
-## ✅ Security Checklist / 安全检查清单
-
-Before publishing, confirm / 发布前确认：
-
-- [x] All inputs are validated / 所有输入都经过验证
-- [x] URL joining uses safe functions / URL 拼接使用安全函数
-- [x] Cache data has size limits / 缓存数据有大小限制
-- [x] File paths are normalized / 文件路径经过规范化
-- [x] Concurrency and timeout control / 有并发和超时控制
-- [x] Errors don't leak sensitive information / 错误不会泄露敏感信息
-- [x] Logging security events / 日志记录安全事件
-- [x] Environment variables are configurable / 环境变量可配置
-
----
-
-## 📊 Security Audit Results / 安全审计结果
-
-### Passed Tests / 已通过测试
-
-- ✅ Input validation tests (path traversal, special characters) / 输入验证测试（路径遍历、特殊字符）
-- ✅ URL injection tests (SSRF protection) / URL 注入测试（SSRF 防护）
-- ✅ Cache poisoning tests (data validation) / 缓存投毒测试（数据验证）
-- ✅ Concurrency stress tests (100 requests) / 并发压力测试（100 次请求）
-- ✅ Timeout control tests (network latency simulation) / 超时控制测试（网络延迟模拟）
-
----
-
-## 📚 References / 参考资料
-
-- [OWASP Input Validation](https://owasp.org/www-community/controls/Input_Validation)
-- [OWASP SSRF Prevention](https://owasp.org/www-community/attacks/Server_Side_Request_Forgery)
-- [Python Security Best Practices](https://docs.python.org/3/library/security.html)
-
----
-
-*Version / 版本: v3.1 (Security Hardened / 安全加固版)*  
-*Last Updated / 最后更新: 2026-03-13*
+*版本: v3.2 — 安全说明与代码实现一一对应*

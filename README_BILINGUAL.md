@@ -1,14 +1,15 @@
-# 📦 GitHub Reader Skill v3.1
+# 📦 GitHub Reader Skill v3.2
 
-**深度解读 GitHub 项目 / Deeply Analyze GitHub Projects**
+**深度解读 GitHub 项目 / Deeply Analyze GitHub Projects**  
+**纯 GitHub API，无第三方依赖 / Pure GitHub API, no third-party services**
 
 ---
 
 ## 🎯 简介 / Introduction
 
-**中文**: GitHub Reader Skill 是一个强大的 AI 工具，只需输入 GitHub 仓库链接，即可自动生成深度分析报告，包括技术架构、性能基准、应用场景等。
+**中文**: 输入 GitHub 仓库链接，自动生成分析报告（项目卡片、README 摘要等）。所有数据来自 GitHub 官方 REST API。
 
-**English**: GitHub Reader Skill is a powerful AI tool that automatically generates in-depth analysis reports including technical architecture, performance benchmarks, and application scenarios by simply inputting a GitHub repository link.
+**English**: Input a GitHub repo link to auto-generate analysis reports (project cards, README summary, etc.). All data comes from GitHub's official REST API.
 
 ---
 
@@ -17,10 +18,10 @@
 ### 安装 / Install
 
 ```bash
-# 使用 ClawHub / Using ClawHub
+# ClawHub
 clawhub install github-reader
 
-# 或手动安装 / Or manual installation
+# 手动 / Manual
 cd github-reader/
 ./install_v3_secure.sh
 ```
@@ -28,46 +29,47 @@ cd github-reader/
 ### 使用 / Usage
 
 ```bash
-# 命令模式 / Command mode
+# 命令 / Command (推荐)
 /github-read microsoft/BitNet
 
-# 自然语言 / Natural language
-帮我解读这个仓库 / Help me analyze this repo
+# URL
+https://github.com/HKUDS/nanobot
+
+# 自然语言 / Natural language (需含 owner/repo)
+分析 HKUDS/nanobot
+解读仓库：microsoft/BitNet
 ```
 
----
-
-## 🛡️ 安全特性 / Security Features
-
-- ✅ **输入验证** / **Input Validation** - 防止 URL 注入 / Prevents URL injection
-- ✅ **URL 编码** / **URL Encoding** - 防止 SSRF 攻击 / Prevents SSRF attacks
-- ✅ **缓存验证** / **Cache Validation** - 防止数据投毒 / Prevents data poisoning
-- ✅ **并发控制** / **Concurrency Control** - 资源保护 / Resource protection
-- ✅ **超时管理** / **Timeout Management** - 防止挂起 / Prevents hanging
+> ⚠️ 泛化语句不触发 / Generic phrases won't trigger (e.g. "analyze this repo" without a repo name)
 
 ---
 
-## 📊 输出内容 / Output
+## 🔒 安全与隐私 / Security & Privacy
 
-分析报告包含 / Analysis report includes:
+- ✅ **纯 GitHub API** / **Pure GitHub API** — 只与 `api.github.com` 通信
+- ✅ **无第三方** / **No third-party** — Zread、GitView 等已移除
+- ✅ **本地缓存** / **Local cache** — 数据不离开设备
+- ✅ **输入验证** / **Input validation** — 防注入、SSRF、遍历、投毒
 
-1. 💡 **一句话介绍** / **One-sentence introduction**
-2. 📊 **项目卡片** / **Project cards** (Stars, Forks, Issues)
-3. 🏗️ **技术架构** / **Technical architecture**
-4. 📈 **性能基准** / **Performance benchmarks**
-5. 🆚 **竞品对比** / **Competitor comparison**
-6. 🚀 **快速开始** / **Quick start guide**
-7. 📚 **学习路径** / **Learning path**
+---
+
+## 📊 输出 / Output
+
+1. 💡 项目简介 / Project intro
+2. 📊 项目卡片 / Project cards (Stars, Forks, Issues, Language, License)
+3. 📖 README 摘要 / README summary
+4. 🔗 GitHub 链接 / GitHub links
+5. 🚀 快速开始 / Quick start
+6. 🔒 数据流向声明 / Data flow notice
 
 ---
 
 ## ⚙️ 配置 / Configuration
 
 ```bash
-# 缓存配置 / Cache settings
-export GITVIEW_CACHE_TTL="24"           # 缓存时间（小时）/ Cache TTL (hours)
-export GITVIEW_MAX_BROWSER="3"          # 最大并发 / Max concurrency
+export GITVIEW_CACHE_TTL="24"           # 缓存时间 / Cache TTL (hours)
 export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
+export GITVIEW_GITHUB_TIMEOUT="10"      # API 超时 / API timeout (seconds)
 ```
 
 ---
@@ -76,16 +78,8 @@ export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
 
 | 场景 / Scenario | 耗时 / Time |
 |----------------|-------------|
-| 首次分析 / First analysis | 10-15 秒 / seconds |
-| 缓存命中 / Cache hit | < 1 秒 / second |
-
----
-
-## 🔗 相关链接 / Links
-
-- **GitHub**: https://github.com/your-repo/github-reader-skill
-- **ClawHub**: `clawhub install github-reader`
-- **文档 / Docs**: See README_EN_CN.md for full documentation
+| 首次分析 / First analysis | 3-5 秒 |
+| 缓存命中 / Cache hit | < 0.1 秒 |
 
 ---
 
@@ -93,13 +87,11 @@ export GITVIEW_GITHUB_DELAY="1.0"       # API 间隔 / API delay (seconds)
 
 MIT License
 
----
-
 ## 👨‍💻 作者 / Author
 
 **Krislu + 🦐 虾软**
 
 ---
 
-*版本 / Version: v3.1 (安全加固版 / Security Hardened)*  
-*更新 / Updated: 2026-03-13*
+*版本: v3.2（纯 API 安全版）*  
+*更新: 2026-05-24*

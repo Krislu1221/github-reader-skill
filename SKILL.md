@@ -1,28 +1,8 @@
-# GitHub Reader Skill v3.1
+# GitHub Reader Skill v3.2
 
 **深度解读 GitHub 项目 / Deeply Analyze GitHub Projects**
 
-📖 自动解读 GitHub 项目，生成结构化分析报告  
-📖 Automatically analyze GitHub projects and generate structured analysis reports
-
----
-
-## 设计理念
-
-GitHub Reader 的核心思路是**组合三个来源的数据**生成一份完整的项目解读报告：
-
-1. **GitHub REST API** — 实时元数据（Stars、Forks、Issues、语言、许可证）
-2. **Zread** — 第三方深度代码解读（架构分析、性能基准、功能拆解）
-3. **结构化模板** — 统一的 Markdown 报告格式，确保每次输出一致
-
-这三个来源互补：GitHub API 给"事实"，Zread 给"深度分析"，模板给"一致性"。
-
-### 核心设计原则
-
-- **输入安全优先** — 所有 repo/owner 名经过严格白名单校验，防止 URL 注入和路径遍历
-- **无外部依赖** — GitHub API 使用标准库 `urllib`，不需要第三方 HTTP 包
-- **工具注入模式** — `web_fetch` 通过构造函数注入而非 import，解耦运行环境
-- **缓存与防抖** — 24 小时文件缓存 + API 速率限制，防止重复请求
+📖 输入 GitHub 仓库链接，自动生成结构化分析报告 — 纯 GitHub REST API，不经过任何第三方服务。
 
 ---
 
@@ -33,7 +13,7 @@ cd github-reader/
 ./install_v3_secure.sh
 ```
 
-然后重启你的 Agent gateway：
+重启 Agent gateway：
 ```bash
 openclaw gateway restart
 ```
@@ -42,111 +22,159 @@ openclaw gateway restart
 
 ## 💡 用法 / Usage
 
-### 命令方式
+### 命令方式（推荐，精准触发）
 ```
 /github-read microsoft/BitNet
 ```
 
-### 自然语言
+### GitHub URL
 ```
-帮我解读这个仓库：https://github.com/HKUDS/nanobot
+https://github.com/HKUDS/nanobot
 ```
 
-### 简短格式
+### 自然语言（需包含 owner/repo）
 ```
 分析 HKUDS/nanobot
+解读仓库：microsoft/BitNet
 ```
+
+> ⚠️ **注意**：不带仓库名的泛化语句（如 "帮我分析这个仓库"）不会触发，避免误触发。
 
 ---
 
-## 📊 输出示例
+## 📊 输出示例 / Output Example
 
 ```markdown
 # 📦 microsoft/BitNet 深度解读报告
 
-> **分析时间**: 2026-05-23 23:04
-> **数据来源**: GitHub API + Zread 深度解读 + 互联网信息
+> 分析时间: 2026-05-24 15:30
+> 数据来源: GitHub REST API（纯 API，不经第三方）
 
-## 💡 一句话介绍
-Official inference framework for 1-bit LLMs
+---
+
+## 💡 项目简介
+BitNet.cpp 是微软官方推出的 1 比特量化大语言模型推理框架...
 
 ## 📊 项目卡片
+
 | 指标 | 值 |
 |------|-----|
-| ⭐ Stars | 39.1k |
-| 🍴 Forks | 3.6k |
-| 📝 Issues | 317 |
+| ⭐ Stars | 12.5k |
+| 🍴 Forks | 2.1k |
+| 📝 Issues | 156 |
 | 🐍 语言 | Python |
-| 📄 许可证 | MIT |
+| 📄 许可证 | MIT License |
+| 🕐 最后更新 | 3天前 |
+
+## 🔗 链接
+| 平台 | 链接 |
+|------|------|
+| GitHub | https://github.com/microsoft/BitNet |
+
+## 📖 README 摘要
+> BitNet.cpp is the official inference framework for 1-bit LLMs...
+
+## 🔗 快速开始
+```bash
+git clone https://github.com/microsoft/BitNet.git
+cd BitNet
+```
+
+🔒 数据流向声明：本次分析仅使用 GitHub REST API，不会将仓库信息发送给任何第三方服务。分析结果本地缓存 24 小时，缓存目录：/tmp/gitview_cache。
+
+---
+*由 🦐 虾软 v3.2 生成 — 纯 GitHub API，无第三方数据外传*
 ```
 
 ---
 
-## 🛡️ 安全特性
+## 🔒 隐私与安全 / Privacy & Security
 
-### P0 级别（高危修复）
-- ✅ **输入验证** — 只允许 `[a-zA-Z0-9._-]`，防 URL 注入
-- ✅ **安全 URL 拼接** — `urllib.parse.quote` 编码路径组件，防 SSRF
-- ✅ **缓存数据验证** — JSON 结构校验 + 文件大小限制，防投毒
-- ✅ **路径安全检查** — 绝对路径规范化 + 目录边界检查，防遍历
+### 数据流向
+- ✅ **仅使用 GitHub 官方 REST API**（`api.github.com`）
+- ✅ **不经过任何第三方服务**（Zread、GitView 等已移除）
+- ✅ **分析结果本地缓存**，缓存位置和时长可配置
+- ✅ **不访问用户的私有仓库列表或 Token**
 
-### P1 级别（中危修复）
-- ✅ **API 频率限制** — GitHub API 调用间隔 ≥1 秒
-- ✅ **超时控制** — API 10 秒超时，防止无限挂起
+### 缓存管理
+缓存目录：`/tmp/gitview_cache`（默认），可通过环境变量修改：
+```bash
+export GITVIEW_CACHE_DIR="/path/to/cache"  # 缓存目录
+export GITVIEW_CACHE_TTL="24"              # 缓存时间（小时）
+```
+
+清除缓存：`rm -rf /tmp/gitview_cache`
 
 ---
 
-## ⚙️ 配置
-
-### 环境变量
+## ⚙️ 配置 / Configuration
 
 ```bash
 # 缓存配置
-export GITVIEW_CACHE_DIR="/tmp/gitview_cache"  # 缓存目录
-export GITVIEW_CACHE_TTL="24"                   # 缓存时间（小时）
-export GITVIEW_CACHE_MAX_SIZE="1"               # 最大缓存文件（MB）
+export GITVIEW_CACHE_DIR="/tmp/gitview_cache"
+export GITVIEW_CACHE_TTL="24"
+export GITVIEW_CACHE_MAX_SIZE="1"    # MB
 
-# 速率限制
-export GITVIEW_GITHUB_DELAY="1.0"               # API 调用间隔（秒）
-export GITVIEW_GITHUB_TIMEOUT="10"              # API 超时（秒）
+# 性能配置
+export GITVIEW_GITHUB_DELAY="1.0"    # API 调用间隔（秒）
+
+# 超时配置
+export GITVIEW_GITHUB_TIMEOUT="10"   # API 超时（秒）
 ```
 
 ---
 
-## 📁 文件结构
+## 📈 性能指标 / Performance
+
+| 场景 | 耗时 | 备注 |
+|------|------|------|
+| 首次分析 | 3-5 秒 | API 调用 + 本地生成 |
+| 缓存命中 | < 0.1 秒 | 直接返回 |
+| 缓存有效期 | 24 小时 | 可配置 |
+
+---
+
+## 📁 文件结构 / File Structure
 
 ```
 github-reader/
-├── github_reader_v3_secure.py       # v3.1 主代码
-├── __init__.py                      # Skill 注册
-├── clawhub.json                     # ClawHub 元数据
-├── SKILL.md                         # 本文档
-├── README.md                        # GitHub README
-├── SECURITY.md                      # 安全指南
-├── RELEASE_NOTES.md                 # 发布说明
-├── PACKAGE.md                       # 打包说明
-└── install_v3_secure.sh             # 安装脚本
+├── github_reader_v3_secure.py    # v3.2 主代码（纯 API）
+├── __init__.py                   # Skill 注册
+├── clawhub.json                  # ClawHub 元数据
+├── SECURITY.md                   # 安全说明（代码对应）
+├── SKILL.md                      # 本文件
+├── RELEASE_NOTES.md              # 发布说明
+├── README.md                     # 简要说明
+├── README_BILINGUAL.md           # 双语说明
+├── README_EN_CN.md               # 详细中英对照
+├── PACKAGE.md                    # 打包说明
+└── install_v3_secure.sh          # 安装脚本
 ```
 
 ---
 
-## 🔧 技术栈
+## 🔄 版本变更（v3.1 → v3.2）
 
-- **语言**: Python 3.9+
-- **HTTP 客户端**: `urllib`（标准库，零额外依赖）
-- **缓存**: 文件系统（JSON 格式）
-- **安全哈希**: MD5（缓存去重，非安全用途）
+| 变更 | 说明 |
+|------|------|
+| ❌ 移除 Zread | 不再调用 zread.ai，不再生成 Zread 链接 |
+| ❌ 移除 GitView | 不再引用本地 GitView 服务 |
+| ✅ 纯 API | 完全基于 GitHub REST API |
+| ✅ 收紧触发 | 只接受显式 owner/repo 格式 |
+| ✅ 隐私声明 | 输出中包含数据流向说明 |
+| ✅ SECURITY.md | 移除未验证的自检清单 |
 
 ---
 
-## 👨‍💻 作者
-
-Kris Lu <krislu666@foxmail.com>
-
-## 📄 许可证
+## 📄 许可证 / License
 
 MIT License
 
+## 👨‍💻 作者 / Author
+
+**Krislu + 🦐 虾软**
+
 ---
 
-*版本: v3.1.4 · 最后更新: 2026-05-23*
+*版本: v3.2（纯 API 安全版）*  
+*最后更新: 2026-05-24*

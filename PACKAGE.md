@@ -1,6 +1,4 @@
-# GitHub Reader Skill v3.1 - ClawHub Release Package
-
-**GitHub Reader Skill v3.1 - ClawHub 发布包**
+# GitHub Reader Skill v3.2 — ClawHub Release Package
 
 ---
 
@@ -8,148 +6,93 @@
 
 ### Required Files / 必需文件
 
-- [x] `github_reader_v3_secure.py` - Main code (v3.1 Secure) / 主代码（v3.1 安全加固版）
-- [x] `__init__.py` - Skill registration / Skill 注册
-- [x] `clawhub.json` - ClawHub metadata / ClawHub 元数据
-- [x] `SECURITY.md` - Security guide / 安全配置指南
-- [x] `RELEASE_NOTES.md` - Release notes / 发布说明
-- [x] `README_BILINGUAL.md` - Bilingual README / 中英双语 README
-- [x] `README_EN_CN.md` - Detailed bilingual README / 详细中英双语 README
-- [x] `SKILL.md` - Main skill documentation / 主文档
-- [x] `PACKAGE.md` - This file / 本文件
-- [x] `install_v3_secure.sh` - Installation script / 安装脚本
+- [x] `github_reader_v3_secure.py` — 主代码（v3.2 纯 API 安全版）
+- [x] `__init__.py` — Skill 注册
+- [x] `clawhub.json` — ClawHub 元数据（v3.2.0）
+- [x] `SECURITY.md` — 安全说明（声明与代码一一对应）
+- [x] `SKILL.md` — 主文档
+- [x] `RELEASE_NOTES.md` — 发布说明
+- [x] `README.md` — 简要说明
+- [x] `README_BILINGUAL.md` — 中英双语说明
+- [x] `README_EN_CN.md` — 详细中英对照
+- [x] `PACKAGE.md` — 本文件
+- [x] `install_v3_secure.sh` — 安装脚本
 
 ---
 
 ## 🚀 Publishing Steps / 发布步骤
 
-### Step 1: Verify File Integrity / 步骤 1：验证文件完整性
+### Step 1: Verify File Integrity / 验证文件完整性
 
 ```bash
-cd /Users/krislu/.enhance-claw/instances/虾软/workspace/skills/github-reader
+cd /path/to/github-reader
 ls -la
+grep -r "zread" --include="*.py" --include="*.md" . | grep -v "移除" | grep -v "不再" | grep -v "无第三方"
+# 应该返回空（所有 zread 引用已清）
 ```
 
-Confirm all files are present / 确认所有文件存在
-
-### Step 2: Local Testing / 步骤 2：本地测试
+### Step 2: Publish to ClawHub / 发布到 ClawHub
 
 ```bash
-# Install Skill / 安装 Skill
-./install_v3_secure.sh
-
-# Restart gateway / 重启 gateway
-openclaw gateway restart
-
-# Test functionality / 测试功能
-/github-read microsoft/BitNet
-```
-
-### Step 3: Publish to ClawHub / 步骤 3：发布到 ClawHub
-
-```bash
-# Method 1: Use clawhub CLI / 方式 1：使用 clawhub CLI
-cd /Users/krislu/.enhance-claw/instances/虾软/workspace/skills/
 clawhub publish github-reader
-
-# Method 2: Manual packaging / 方式 2：手动打包
-cd ..
-tar -czf github-reader-v3.1.0.tar.gz github-reader/
-clawhub upload github-reader-v3.1.0.tar.gz
 ```
 
-### Step 4: Verify Publication / 步骤 4：验证发布
+### Step 3: Verify Publication / 验证发布
 
 ```bash
-# Search Skill / 搜索 Skill
 clawhub search github-reader
-
-# Install test / 安装测试
 clawhub install github-reader
-
-# Functionality test / 功能测试
-/github-read langflow-ai/openrag
+/github-read microsoft/BitNet
 ```
 
 ---
 
 ## 📊 Version Information / 版本信息
 
-- **Version / 版本号**: 3.1.0
-- **Release Date / 发布日期**: 2026-03-13
-- **Type / 类型**: International Security Hardened / 国际化安全加固
-- **Compatibility / 兼容性**: OpenClaw 2026.3.0+
+- **Version**: 3.2.0
+- **Release Date**: 2026-05-24
+- **Type**: Pure API Secure / 纯 API 安全版
+- **Compatibility**: OpenClaw 2026.3.0+
 
 ---
 
-## 🔒 Security Audit / 安全审计
+## 🔒 v3.2 变更 vs v3.1
 
-### Passed Tests / 已通过测试
-
-- ✅ Input validation tests (path traversal, special characters) / 输入验证测试（路径遍历、特殊字符）
-- ✅ URL injection tests (SSRF protection) / URL 注入测试（SSRF 防护）
-- ✅ Cache poisoning tests (data validation) / 缓存投毒测试（数据验证）
-- ✅ Concurrency stress tests (100 requests) / 并发压力测试（100 次请求）
-- ✅ Timeout control tests (network latency simulation) / 超时控制测试（网络延迟模拟）
-
----
-
-## 📝 Release Notes Summary / 发布说明摘要
-
-### v3.1.0 Major Improvements / v3.1.0 主要改进
-
-**🌐 Internationalization / 国际化**:
-- ✅ Complete bilingual support (Chinese + English) / 完整中英双语支持
-- ✅ Platform-agnostic (removed nanobot hardcoding) / 平台通用化（移除 nanobot 硬编码）
-
-**🔒 Security Hardening / 安全加固**:
-- ✅ All P0/P1 security issues fixed / 所有 P0/P1 安全问题已修复
-- ✅ Input validation and URL sanitization / 输入验证和 URL 清理
-- ✅ Cache validation and path security / 缓存验证和路径安全
-
-**📁 Code Cleanup / 代码清理**:
-- ✅ Removed old version files / 删除旧版本文件
-- ✅ Updated all documentation / 更新所有文档
-
-**⚡ Performance / 性能优化**:
-- ✅ Browser concurrency limiting / 浏览器并发限制
-- ✅ API rate limiting / API 频率限制
-- ✅ Timeout control / 超时控制
+| 变更 | 说明 |
+|------|------|
+| ❌ 移除 Zread | `fetch_zread_content()` 删除，不生成 zread.ai 链接 |
+| ❌ 移除 GitView | 不引用本地 GitView 服务 |
+| ✅ 纯 GitHub API | 所有数据来自 `api.github.com` |
+| ✅ 收紧触发词 | 只接受显式 owner/repo 格式 |
+| ✅ 隐私声明 | 输出中包含数据流向说明 |
+| ✅ SECURITY.md 可验证 | 每个安全声明有具体函数名对应 |
+| 🔧 修复 16 个审计问题 | 意图-代码不一致、第三方外传、触发词过宽、缺少警告、嵌套版本 |
 
 ---
 
 ## 📈 Performance Metrics / 性能指标
 
-| Scenario / 场景 | Time / 耗时 | Notes / 备注 |
-|----------------|-------------|--------------|
-| First analysis / 首次分析 | 10-15 seconds / 秒 | Fetch + Analyze / 抓取 + 分析 |
-| Cache hit / 缓存命中 | < 1 second / 秒 | Direct return / 直接返回 |
-| Cache expiry / 缓存过期 | 12-24 hours / 小时 | Configurable / 可配置 |
-
----
-
-## 📞 Support Information / 支持信息
-
-- **Author / 作者**: Krislu + 🦐 虾软
-- **GitHub**: https://github.com/your-repo/github-reader-skill
-- **License / 许可证**: MIT
-- **Issues**: https://github.com/your-repo/github-reader-skill/issues
-- **Discussions / 讨论区**: https://github.com/your-repo/github-reader-skill/discussions
+| 场景 | 耗时 | 备注 |
+|------|------|------|
+| 首次分析 | 3-5 秒 | GitHub API + 本地渲染 |
+| 缓存命中 | < 0.1 秒 | 直接返回 |
 
 ---
 
 ## ✅ Pre-release Checklist / 发布前检查清单
 
-- [x] Code updated to v3.1 (security hardened) / 代码已更新到 v3.1（安全加固）
-- [x] Output format updated (new opening statement) / 输出格式已更新（新的开场白）
-- [x] clawhub.json created / clawhub.json 已创建
-- [x] Security documentation completed / 安全文档已完善
-- [x] Release notes written / 发布说明已编写
-- [x] Local tests passed / 本地测试通过
-- [ ] ClawHub publication / ClawHub 发布
-- [ ] Post-release verification / 发布后验证
+- [x] 移除所有 zread.ai 代码引用
+- [x] 移除所有 GitView 引用
+- [x] 收紧触发词（泛化语句不触发）
+- [x] SECURITY.md 声明与代码一一对应
+- [x] 添加隐私/数据流向声明
+- [x] 移除未验证的安全自检清单
+- [x] 清理嵌套旧版本（如有）
+- [x] 更新所有文档至 v3.2
+- [ ] ClawHub 发布
+- [ ] 发布后验证
 
 ---
 
-*Packaged on / 打包时间: 2026-03-13*  
-*Version / 版本: v3.1.0*
+*打包时间: 2026-05-24*  
+*版本: v3.2.0*
