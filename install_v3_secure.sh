@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🦐 安装 GitHub Reader Skill v3.2（纯 API 安全版）..."
+echo "📦 安装 GitHub Reader Skill v3.2（纯 API 安全版）..."
 echo ""
 
 # 使用环境变量或默认路径

@@ -455,7 +455,7 @@ cd {repo}
 {report.get('privacy_notice', '')}
 
 ---
-*由 🦐 虾软 v3.2 生成 — 纯 GitHub API，无第三方数据外传*
+*v3.2 — 纯 GitHub API，无第三方数据外传*
 """
 
     # ---- 工具函数 ----

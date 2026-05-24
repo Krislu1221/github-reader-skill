@@ -86,7 +86,7 @@ MIT License
 
 ## 👨‍💻 作者
 
-**Krislu + 🦐 虾软**
+**Kris Lu**
 
 ---
 

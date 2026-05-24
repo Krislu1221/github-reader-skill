@@ -151,7 +151,7 @@ MIT License
 
 ## 👨‍💻 作者 / Author
 
-**Krislu + 🦐 虾软**
+**Kris Lu**
 
 ---
 

@@ -2,7 +2,7 @@
   "name": "github-reader",
   "version": "3.2.0",
   "description": "深度解读 GitHub 项目，生成结构化分析报告（纯 GitHub REST API，无第三方依赖）",
-  "author": "Krislu + 🦐 虾软",
+  "author": "Kris Lu <krislu666@foxmail.com>",
   "license": "MIT",
   "tags": ["github", "analysis", "report", "github-reader", "code-analysis"],
   "main": "github_reader_v3_secure.py",

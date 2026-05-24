@@ -83,7 +83,7 @@ cd BitNet
 🔒 数据流向声明：本次分析仅使用 GitHub REST API，不会将仓库信息发送给任何第三方服务。分析结果本地缓存 24 小时，缓存目录：/tmp/gitview_cache。
 
 ---
-*由 🦐 虾软 v3.2 生成 — 纯 GitHub API，无第三方数据外传*
+*v3.2 — 纯 GitHub API，无第三方数据外传*
 ```
 
 ---
@@ -172,7 +172,7 @@ MIT License
 
 ## 👨‍💻 作者 / Author
 
-**Krislu + 🦐 虾软**
+**Kris Lu**
 
 ---
 
