@@ -1,6 +1,6 @@
 {
   "name": "github-reader",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "深度解读 GitHub 项目，生成结构化分析报告（纯 GitHub REST API，无第三方依赖）",
   "author": "Kris Lu",
   "license": "MIT",
